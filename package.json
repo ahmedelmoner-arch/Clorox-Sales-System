@@ -1,0 +1,12 @@
+{
+  "name": "clorox-sales-system-deployment",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "build": "npm --workspace frontend run build"
+  }
+}

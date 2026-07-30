@@ -1,0 +1,13 @@
+:root {
+  font-family: "Cairo", "Tahoma", Arial, sans-serif;
+  color: #1a2540;
+  background: #f5f7fc;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #f5f7fc; }
+button, input, textarea { font-family: inherit; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #c6d0e4; border-radius: 999px; }

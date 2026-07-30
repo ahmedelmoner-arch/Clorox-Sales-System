@@ -1,0 +1,80 @@
+.clorox-login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 8% 13%, rgba(255,255,255,.58) 0 2px, transparent 2.5px) 0 0 / 17px 17px,
+    radial-gradient(ellipse at 50% 24%, rgba(213,237,255,.75), transparent 46%),
+    linear-gradient(148deg, #eaf6ff 0%, #a7d3ff 32%, #1674e7 73%, #003d9a 100%);
+}
+
+.clorox-login::before,
+.clorox-login::after {
+  content: "";
+  position: fixed;
+  inset: auto -14% -22% -14%;
+  height: 62vh;
+  pointer-events: none;
+  border-radius: 50% 50% 0 0 / 25% 25% 0 0;
+  border: 66px solid rgba(105, 184, 255, .28);
+  transform: rotate(-5deg);
+}
+
+.clorox-login::after {
+  inset: auto -20% -28% -20%;
+  border-color: rgba(0, 84, 207, .48);
+  transform: rotate(8deg);
+}
+
+.clorox-login-card { position: relative; z-index: 1; }
+
+.clorox-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(120deg, #064fc3 0%, #096ff0 57%, #0f53c4 100%);
+}
+
+.clorox-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 350px;
+  height: 350px;
+  left: -130px;
+  bottom: -235px;
+  border-radius: 50%;
+  border: 48px solid rgba(255,255,255,.11);
+}
+
+.clorox-hero::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 0;
+  width: 34%;
+  height: 100%;
+  opacity: .22;
+  background-image: radial-gradient(rgba(255,255,255,.8) 1.3px, transparent 1.4px);
+  background-size: 14px 14px;
+}
+
+.reference-nav {
+  backdrop-filter: blur(18px);
+  background: rgba(255,255,255,.95) !important;
+}
+
+.reference-add-button {
+  margin-top: -36px !important;
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  border: 5px solid #f5f7fc !important;
+  border-radius: 50% !important;
+  color: white !important;
+  background: linear-gradient(145deg, #2385ff, #0753ce) !important;
+  box-shadow: 0 12px 23px rgba(0,81,202,.35) !important;
+}

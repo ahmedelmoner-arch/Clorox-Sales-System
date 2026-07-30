@@ -1,0 +1,103 @@
+.dashboard-header{
+
+    background:linear-gradient(135deg,#2563EB,#4F8EF7);
+
+    border-radius:30px;
+
+    padding:45px 28px;
+
+    color:white;
+
+    box-shadow:0 15px 40px rgba(0,0,0,.15);
+
+    text-align:center;
+
+    position: relative;
+overflow: hidden;
+.dashboard-header::before{
+    content:"";
+    position:absolute;
+    width:260px;
+    height:260px;
+    border-radius:50%;
+    background:rgba(255,255,255,.08);
+    top:-120px;
+    left:-80px;
+}
+
+.dashboard-header::after{
+    content:"";
+    position:absolute;
+    width:180px;
+    height:180px;
+    border-radius:50%;
+    background:rgba(255,255,255,.05);
+    bottom:-80px;
+    right:-40px;
+}
+
+}
+
+.welcome{
+    font-size:34px;
+    line-height:1;
+}
+
+.welcome-text{
+    margin-top:6px;
+    font-size:20px;
+    opacity:.9;
+    font-weight:600;
+}
+
+.delegate-name{
+    margin:16px 0 8px;
+    font-size:36px;
+    font-weight:700;
+    line-height:1.2;
+}
+
+.today{
+    margin-top:8px;
+    font-size:18px;
+    opacity:.85;
+}
+
+.progress-info{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    margin-top:45px;
+
+    margin-bottom:12px;
+
+    font-size:20px;
+
+    font-weight:600;
+
+}
+
+.progress-bar{
+
+    height:16px;
+
+    background:rgba(255,255,255,.25);
+
+    border-radius:50px;
+
+    overflow:hidden;
+
+}
+.progress-fill{
+
+    height:100%;
+
+    border-radius:50px;
+
+    background:linear-gradient(90deg,#22c55e,#16a34a);
+
+    transition:width .7s ease;
+
+}

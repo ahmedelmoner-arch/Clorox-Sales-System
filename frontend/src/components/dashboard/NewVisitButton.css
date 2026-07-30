@@ -1,0 +1,47 @@
+.new-visit-btn{
+
+    width:100%;
+
+    margin-top:24px;
+
+    border:none;
+
+    border-radius:22px;
+
+    padding:18px;
+
+    background:linear-gradient(135deg,#2563EB,#4F8EF7);
+
+    color:#fff;
+
+    font-size:22px;
+
+    font-weight:700;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    gap:12px;
+
+    cursor:pointer;
+
+    box-shadow:0 12px 25px rgba(37,99,235,.25);
+
+    transition:.25s;
+
+}
+
+.new-visit-btn:hover{
+
+    transform:translateY(-3px);
+
+}
+
+.new-visit-btn:active{
+
+    transform:scale(.98);
+
+}

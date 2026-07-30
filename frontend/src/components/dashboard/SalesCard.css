@@ -1,0 +1,73 @@
+.sales-card{
+
+    margin-top:22px;
+
+    background:#fff;
+
+    border-radius:24px;
+
+    padding:22px;
+
+    box-shadow:0 10px 30px rgba(0,0,0,.08);
+
+}
+
+.sales-title{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    color:#2563EB;
+
+    font-size:22px;
+
+    font-weight:700;
+
+    margin-bottom:20px;
+
+}
+
+.sales-row{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:14px 0;
+
+    border-bottom:1px solid #edf2f7;
+
+}
+
+.sales-row:last-child{
+
+    border-bottom:none;
+
+}
+
+.sales-label{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    color:#555;
+
+    font-size:17px;
+
+}
+
+.sales-row strong{
+
+    color:#111;
+
+    font-size:20px;
+
+}

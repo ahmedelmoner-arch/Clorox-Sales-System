@@ -1,0 +1,12 @@
+# Runtime secrets and Google service-account credentials
+.env
+*.env
+!.env.example
+backend/config/service-account.json
+
+# Dependencies and generated artifacts
+node_modules/
+frontend/dist/
+coverage/
+*.log
+.vercel/
