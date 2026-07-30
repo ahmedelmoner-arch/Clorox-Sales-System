@@ -7,7 +7,7 @@ if (process.platform === "linux") {
   } catch {
     const rollupVersion = require("rollup/package.json").version;
     const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-    execFileSync(npm, ["install", "--no-save", "--no-package-lock", "--ignore-scripts", `${packageName}@${rollupVersion}`], {
+    execFileSync(npm, ["install", "--workspaces=false", "--no-save", "--no-package-lock", "--ignore-scripts", `${packageName}@${rollupVersion}`], {
       stdio: "inherit",
     });
   }
