@@ -14,11 +14,13 @@ import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AppShell from "../../components/layout/AppShell";
 import { useSession } from "../../context/SessionContext";
 import { getDelegateDrilldown, getOversight } from "../../services/oversight.service";
 import { updateShortageStatus } from "../../services/shortage.service";
+import { exportOversightCsv, exportOversightExcel } from "../../utils/oversight-export";
 import { normalizeRole, roleLabel } from "../../utils/roles";
 import { getCairoDate } from "../../utils/date";
 
@@ -138,6 +140,7 @@ export default function OversightPage() {
   const [delegateError, setDelegateError] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
   const [shortageUpdatingId, setShortageUpdatingId] = useState("");
+  const [exportingFormat, setExportingFormat] = useState("");
   const role = normalizeRole(user?.role);
 
   useEffect(() => {
@@ -177,6 +180,19 @@ export default function OversightPage() {
     }
   }
 
+  async function downloadReport(format) {
+    if (!data || exportingFormat) return;
+    try {
+      setExportingFormat(format);
+      if (format === "excel") await exportOversightExcel(data);
+      else exportOversightCsv(data);
+    } catch {
+      setError("تعذر تصدير التقرير. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingFormat("");
+    }
+  }
+
   const summary = data?.summary || {};
   const shortages = data?.shortages || {};
   const heading = role === "Management" ? "لوحة الإدارة" : "لوحة المشرف";
@@ -194,5 +210,5 @@ export default function OversightPage() {
 
   const overview = data && <><Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))" }, gap: 1.2 }}>{cards.map((card) => <MetricCard key={card.title} {...card} />)}</Box>{shortages.products?.length > 0 && <Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>أعلى نواقص المنتجات</Typography><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", lg: "repeat(3, minmax(0, 1fr))" }, gap: 1.1 }}>{shortages.products.slice(0, 6).map((item) => <Card key={item.productId} elevation={0} sx={{ border: "1px solid #f2dfc1", borderRadius: 2.5, bgcolor: "#fffdf8" }}><CardContent sx={{ p: 1.35, "&:last-child": { pb: 1.35 } }}><Stack direction="row" justifyContent="space-between" spacing={1}><Box minWidth={0}><Typography fontWeight={900} noWrap>{item.productName}</Typography><Typography variant="caption" color="text.secondary" noWrap>{item.category || "منتجات أخرى"}</Typography></Box><Box textAlign="center"><Typography color="#d97706" fontWeight={900}>{number(item.open)}</Typography><Typography variant="caption" color="text.secondary">مفتوح</Typography></Box></Stack></CardContent></Card>)}</Box></Box>}<ShortageFollowUp details={shortages.details || []} onResolve={resolveShortage} resolvingId={shortageUpdatingId} />{role === "Management" && <Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>أداء فرق المشرفين</Typography><PerformanceTable rows={data.supervisors || []} type="supervisor" /></Box>}<Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>{role === "Management" ? "أداء جميع المندوبات" : "أداء فريق المندوبات"}</Typography><PerformanceTable rows={data.delegates || []} type="delegate" onSelect={openDelegate} /></Box><Box sx={{ mt: 3, mb: 2 }}><Stack direction="row" alignItems="center" spacing={.8} sx={{ mb: 1.1 }}><Divider flexItem sx={{ flex: 1 }} /><Typography fontWeight={900}>أداء الكاتيجوري</Typography><Divider flexItem sx={{ flex: 1 }} /></Stack><CategoryTable categories={data.categories || []} /></Box></>;
 
-  return <AppShell hideNavigation><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1.5} sx={{ mb: 2.25 }}><Stack direction="row" alignItems="center" spacing={1.15}><Box sx={{ width: 46, height: 46, display: "grid", placeItems: "center", borderRadius: 2.5, bgcolor: role === "Management" ? "#eef5ff" : "#e9f8f4", color: role === "Management" ? "#2563eb" : "#0f766e" }}>{role === "Management" ? <ManageAccountsRoundedIcon /> : <SupervisorAccountRoundedIcon />}</Box><Box><Typography variant="h5" fontWeight={900}>{heading}</Typography><Typography variant="body2" color="text.secondary">{user?.name || roleLabel(role)} · {teamLabel}</Typography></Box></Stack><TextField type="month" size="small" label="الشهر" value={month} onChange={(event) => setMonth(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: { xs: "100%", sm: 178 } }} /></Stack>{role === "Management" && <Box sx={{ borderBottom: "1px solid #dfe7f1", mb: 2.25 }}><Tabs value={view} onChange={(_, nextView) => setView(nextView)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ minHeight: 46, "& .MuiTab-root": { minHeight: 46, fontWeight: 900, px: 2 } }}><Tab value="overview" label="نظرة الإدارة" icon={<ManageAccountsRoundedIcon fontSize="small" />} iconPosition="start" /><Tab value="team-analysis" label="تحليل الفريق" icon={<InsightsRoundedIcon fontSize="small" />} iconPosition="start" /></Tabs></Box>}{error && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}{!data && !error && <Box sx={{ minHeight: 300, display: "grid", placeItems: "center" }}><CircularProgress /></Box>}{data && (role === "Management" && view === "team-analysis" ? <TeamAnalysisDashboard data={data} month={month} onSelectDelegate={openDelegate} /> : overview)}<DelegateDetailDialog delegate={selectedDelegate} data={delegateDetail} loading={delegateLoading} error={delegateError} onClose={closeDelegate} onOpenDay={setSelectedDay} /><DayDetailDialog day={selectedDay} onClose={() => setSelectedDay(null)} /></AppShell>;
+  return <AppShell hideNavigation><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1.5} sx={{ mb: 2.25 }}><Stack direction="row" alignItems="center" spacing={1.15}><Box sx={{ width: 46, height: 46, display: "grid", placeItems: "center", borderRadius: 2.5, bgcolor: role === "Management" ? "#eef5ff" : "#e9f8f4", color: role === "Management" ? "#2563eb" : "#0f766e" }}>{role === "Management" ? <ManageAccountsRoundedIcon /> : <SupervisorAccountRoundedIcon />}</Box><Box><Typography variant="h5" fontWeight={900}>{heading}</Typography><Typography variant="body2" color="text.secondary">{user?.name || roleLabel(role)} · {teamLabel}</Typography></Box></Stack><Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}><TextField type="month" size="small" label="الشهر" value={month} onChange={(event) => setMonth(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: { xs: "100%", sm: 178 } }} /><Stack direction="row" spacing={1}><Button variant="outlined" size="small" startIcon={<FileDownloadOutlinedIcon />} disabled={!data || Boolean(exportingFormat)} onClick={() => downloadReport("excel")}>{exportingFormat === "excel" ? "جارٍ تجهيز Excel..." : "Excel"}</Button><Button variant="outlined" size="small" startIcon={<FileDownloadOutlinedIcon />} disabled={!data || Boolean(exportingFormat)} onClick={() => downloadReport("csv")}>{exportingFormat === "csv" ? "جارٍ تجهيز CSV..." : "CSV"}</Button></Stack></Stack></Stack>{role === "Management" && <Box sx={{ borderBottom: "1px solid #dfe7f1", mb: 2.25 }}><Tabs value={view} onChange={(_, nextView) => setView(nextView)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ minHeight: 46, "& .MuiTab-root": { minHeight: 46, fontWeight: 900, px: 2 } }}><Tab value="overview" label="نظرة الإدارة" icon={<ManageAccountsRoundedIcon fontSize="small" />} iconPosition="start" /><Tab value="team-analysis" label="تحليل الفريق" icon={<InsightsRoundedIcon fontSize="small" />} iconPosition="start" /></Tabs></Box>}{error && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}{!data && !error && <Box sx={{ minHeight: 300, display: "grid", placeItems: "center" }}><CircularProgress /></Box>}{data && (role === "Management" && view === "team-analysis" ? <TeamAnalysisDashboard data={data} month={month} onSelectDelegate={openDelegate} /> : overview)}<DelegateDetailDialog delegate={selectedDelegate} data={delegateDetail} loading={delegateLoading} error={delegateError} onClose={closeDelegate} onOpenDay={setSelectedDay} /><DayDetailDialog day={selectedDay} onClose={() => setSelectedDay(null)} /></AppShell>;
 }
