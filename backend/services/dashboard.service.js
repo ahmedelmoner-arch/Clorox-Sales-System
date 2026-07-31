@@ -1,6 +1,6 @@
 const { currentDate, getSheetRows, toDate, toMonth, toNumber } = require("./sheets.service");
 const { getReportsForDelegate, getTargetSummaryForDate, makeSummary } = require("./report.service");
-const { getVacationSummary } = require("./vacation.service");
+const { getAnnualVacationDays, getVacationSummary } = require("./vacation.service");
 const { createProductOrder } = require("../utils/product-order");
 
 function matchesDelegate(row, delegateId) {
@@ -234,6 +234,7 @@ async function getDashboardData(user, { month } = {}) {
   ]);
 
   const reports = monthReports.filter((report) => toDate(report.Date) === date);
+  const vacationDays = getAnnualVacationDays(allReports, delegateId);
   const reportSummary = makeSummary(reports);
   const targets = await getTargetSummaryForDate(user, date);
   const summary = {
@@ -247,7 +248,10 @@ async function getDashboardData(user, { month } = {}) {
     date,
     summary,
     cumulative: buildCumulativeDetails(allReports, targetSheet.rows, productSheet.rows, delegateId),
-    vacation: getVacationSummary(vacationSheet.rows, delegateId, allReports),
+    vacation: {
+      ...getVacationSummary(vacationSheet.rows, delegateId, allReports),
+      days: vacationDays,
+    },
     charts: {
       month: selectedMonth,
       customerDays: buildCustomerDays(monthReports, targetSheet.rows, delegateId, selectedMonth),

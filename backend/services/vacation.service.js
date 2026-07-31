@@ -29,14 +29,27 @@ function annualVacationReportId(report) {
 }
 
 function countAnnualVacationReports(reports, delegateId) {
+  return getAnnualVacationDays(reports, delegateId).length;
+}
+
+function getAnnualVacationDays(reports, delegateId) {
   const reportIds = new Set();
-  reports.forEach((report) => {
-    if (!matchesDelegate(report, delegateId)) return;
-    if (String(report.ReportType || "").trim() !== "Vacation") return;
-    if (!isAnnualVacation(report.VacationType)) return;
-    reportIds.add(annualVacationReportId(report));
-  });
-  return reportIds.size;
+  return reports
+    .filter((report) => {
+      if (!matchesDelegate(report, delegateId)) return false;
+      if (String(report.ReportType || "").trim() !== "Vacation") return false;
+      if (!isAnnualVacation(report.VacationType)) return false;
+      const id = annualVacationReportId(report);
+      if (reportIds.has(id)) return false;
+      reportIds.add(id);
+      return Boolean(toDate(report.Date));
+    })
+    .map((report) => ({
+      id: annualVacationReportId(report),
+      date: toDate(report.Date),
+      vacationType: String(report.VacationType || "").trim(),
+    }))
+    .sort((left, right) => right.date.localeCompare(left.date));
 }
 
 function findHeader(headers, aliases) {
@@ -98,6 +111,7 @@ async function syncVacationDelegateBalance(vacationSheet, delegateId, reports, {
 
 module.exports = {
   countAnnualVacationReports,
+  getAnnualVacationDays,
   getVacationSummary,
   isAnnualVacation,
   syncVacationDelegateBalance,
