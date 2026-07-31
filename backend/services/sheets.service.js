@@ -3,7 +3,9 @@ const { SPREADSHEET_ID } = require("../config/env");
 
 function requireSpreadsheetId() {
   if (!SPREADSHEET_ID) {
-    throw new Error("SPREADSHEET_ID is missing. Add it to backend/.env before starting the API.");
+    const error = new Error("SPREADSHEET_ID is missing. Add it to Vercel Environment Variables or backend/.env.");
+    error.statusCode = 503;
+    throw error;
   }
 }
 

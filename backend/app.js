@@ -9,6 +9,7 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
+app.set("trust proxy", 1);
 const defaultOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
 const allowedOrigins = (process.env.CORS_ORIGINS || defaultOrigins.join(","))
   .split(",")
@@ -32,8 +33,8 @@ app.use(cors({
     return callback(new Error("Origin is not allowed by CORS"));
   },
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "256kb" }));
+app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
 // Health Check
 app.get("/", (req, res) => {
@@ -44,9 +45,10 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Clorox Sales API is Running",
+  const ready = Boolean(process.env.SPREADSHEET_ID && process.env.JWT_SECRET && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT));
+  res.status(ready ? 200 : 503).json({
+    success: ready,
+    message: ready ? "Clorox Sales API is Running" : "Clorox Sales API configuration is incomplete",
   });
 });
 
@@ -63,6 +65,15 @@ app.use("/api", (req, res) => {
   res.status(404).json({
     success: false,
     message: "API Route Not Found",
+  });
+});
+
+app.use((error, req, res, next) => {
+  console.error("Unhandled API error:", error);
+  if (res.headersSent) return next(error);
+  return res.status(error.statusCode || 500).json({
+    success: false,
+    message: "Unexpected API error",
   });
 });
 

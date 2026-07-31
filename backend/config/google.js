@@ -14,6 +14,12 @@ function serviceAccountCredentials() {
 
 const credentials = serviceAccountCredentials();
 
+if (!credentials && !GOOGLE_SERVICE_ACCOUNT) {
+  const error = new Error("Google service-account credentials are not configured");
+  error.statusCode = 503;
+  throw error;
+}
+
 const auth = new google.auth.GoogleAuth({
   ...(credentials ? { credentials } : { keyFile: GOOGLE_SERVICE_ACCOUNT }),
   scopes: [

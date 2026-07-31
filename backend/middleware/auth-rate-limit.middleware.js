@@ -2,9 +2,18 @@ const attempts = new Map();
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
 
+function removeExpiredAttempts(now) {
+  for (const [key, timestamps] of attempts) {
+    const recent = timestamps.filter((time) => now - time < WINDOW_MS);
+    if (recent.length) attempts.set(key, recent);
+    else attempts.delete(key);
+  }
+}
+
 function loginRateLimit(req, res, next) {
-  const key = req.ip;
   const now = Date.now();
+  removeExpiredAttempts(now);
+  const key = req.ip || "unknown";
   const recentAttempts = (attempts.get(key) || []).filter((time) => now - time < WINDOW_MS);
 
   if (recentAttempts.length >= MAX_ATTEMPTS) {
