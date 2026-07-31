@@ -254,6 +254,12 @@ function requireNonNegativeInteger(value, fieldName) {
   return amount;
 }
 
+function requirePositiveInteger(value, fieldName) {
+  const amount = requireNonNegativeInteger(value, fieldName);
+  if (amount < 1) throw new Error(`${fieldName} must be a whole number greater than zero`);
+  return amount;
+}
+
 function safeText(value, maximumLength = 500) {
   return String(value ?? "").trim().slice(0, maximumLength);
 }
@@ -307,7 +313,7 @@ function buildRecord({ user, payload, reportType, date, branch, supervisor, prod
     ProductName: product?.ProductName || "",
     TargetPieces: product?.targetPieces || 0,
     ActualPieces: product?.actualPieces || 0,
-    Amount: reportType === "Vouchers" && isFirst ? requireNonNegativeInteger(payload.vouchers, "Vouchers") : 0,
+    Amount: reportType === "Vouchers" && isFirst ? requirePositiveInteger(payload.vouchers, "Vouchers") : 0,
     PostiveConsumer: positiveConsumers,
     NegativeConsumer: negativeConsumers,
     TotalConsumer: positiveConsumers + negativeConsumers,
@@ -333,10 +339,10 @@ async function createReport(user, payload) {
     getSheetRows("Supervisors"),
   ]);
 
-  const branch = reportType === "Vacation"
-    ? null
-    : branchSheet.rows.find((item) => String(item.BranchID || "").trim() === String(payload.branchId || "").trim());
-  if (reportType !== "Vacation" && !branch) throw new Error("Choose a valid branch");
+  const branch = branchSheet.rows.find(
+    (item) => String(item.BranchID || "").trim() === String(payload.branchId || "").trim()
+  );
+  if (!branch) throw new Error("Choose a valid branch");
 
   const supervisor = supervisorSheet.rows.find(
     (item) => String(item.SupervisorsID || "").trim() === String(payload.supervisorId || "").trim()
@@ -347,6 +353,8 @@ async function createReport(user, payload) {
     const validVacation = vacationTypeSheet.rows.some((item) => String(item.VacationType || "").trim() === safeText(payload.vacationType, 100));
     if (!validVacation) throw new Error("Choose a valid vacation type");
   }
+
+  if (reportType === "Vouchers") requirePositiveInteger(payload.vouchers, "Vouchers");
 
   const annualVacation = reportType === "Vacation" && isAnnualVacation(payload.vacationType);
   const vacationSheet = annualVacation ? await getSheetRows("VacationDelegate") : null;

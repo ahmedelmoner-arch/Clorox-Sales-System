@@ -20,7 +20,7 @@ export default function NewVisitPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState({ open: false, message: "", severity: "success" });
-  const [form, setForm] = useState({ date: getCairoDate(), reportType: "Sales", branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" });
+  const [form, setForm] = useState({ date: getCairoDate(), reportType: "", branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" });
 
   useEffect(() => {
     let cancelled = false;
@@ -64,7 +64,13 @@ export default function NewVisitPage() {
 
   async function submit(event) {
     event.preventDefault();
-    if (!isVacation && !form.branch) return setFeedback({ open: true, severity: "warning", message: "اختاري الفرع أولًا." });
+    if (!form.reportType) return setFeedback({ open: true, severity: "warning", message: "اختاري نوع التقرير أولًا." });
+    if (!form.supervisor) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم المشرف أولًا." });
+    if (!form.branch) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم الفرع أولًا." });
+    if (isVacation && !form.vacationType) return setFeedback({ open: true, severity: "warning", message: "اختاري نوع الإجازة أولًا." });
+    if (isVoucher && (!Number.isInteger(Number(form.vouchers)) || Number(form.vouchers) < 1)) {
+      return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد الفواتشر برقم صحيح أكبر من صفر." });
+    }
     try {
       setSaving(true);
       const products = Object.values(entries).filter((item) => Number(item.actualPieces) > 0);
@@ -87,16 +93,19 @@ export default function NewVisitPage() {
       <Box component="form" onSubmit={submit}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1} sx={{ mb: 2.5 }}>
           <Box><Typography variant="h5" fontWeight={900}>إضافة تقرير جديد</Typography><Typography color="text.secondary">أدخلي البيانات ثم احفظيها مباشرة في ملف التقارير.</Typography></Box>
-          <Chip icon={<Inventory2OutlinedIcon />} label={typeLabels[form.reportType] || form.reportType} color="primary" variant="outlined" />
+          <Chip icon={<Inventory2OutlinedIcon />} label={typeLabels[form.reportType] || "اختاري نوع التقرير"} color="primary" variant="outlined" />
         </Stack>
         <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography fontWeight={900} sx={{ mb: 2 }}>بيانات التقرير</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 2 }}>
             <TextField fullWidth type="date" label="التاريخ" value={form.date} onChange={(event) => updateForm("date", event.target.value)} InputLabelProps={{ shrink: true }} />
             <TextField fullWidth label="اسم المندوبة" value={user?.delegateName || user?.name || ""} InputProps={{ readOnly: true }} />
-            <TextField fullWidth select label="نوع التقرير" value={form.reportType} onChange={(event) => updateForm("reportType", event.target.value)}>{(init?.reportTypes || ["Sales", "Vouchers", "Vacation"]).map((type) => <MenuItem key={type} value={type}>{typeLabels[type] || type}</MenuItem>)}</TextField>
+            <TextField fullWidth required select label="نوع التقرير" value={form.reportType} onChange={(event) => updateForm("reportType", event.target.value)}>
+              <MenuItem value="" disabled>اختاري نوع التقرير</MenuItem>
+              {(init?.reportTypes || ["Sales", "Vouchers", "Vacation"]).map((type) => <MenuItem key={type} value={type}>{typeLabels[type] || type}</MenuItem>)}
+            </TextField>
             <Autocomplete options={init?.supervisors || []} value={form.supervisor} onChange={(_, value) => updateForm("supervisor", value)} getOptionLabel={(option) => option.name || ""} isOptionEqualToValue={(option, value) => option.id === value.id} renderInput={(params) => <TextField {...params} required label="اسم المشرف" placeholder="اختاري اسم المشرف" />} />
-            {!isVacation && <Autocomplete options={init?.branches || []} value={form.branch} onChange={(_, value) => updateForm("branch", value)} getOptionLabel={(option) => option.name || ""} isOptionEqualToValue={(option, value) => option.code === value.code} renderInput={(params) => <TextField {...params} required label="اسم الفرع" placeholder="ابحثي باسم الفرع" />} />}
+            <Autocomplete options={init?.branches || []} value={form.branch} onChange={(_, value) => updateForm("branch", value)} getOptionLabel={(option) => option.name || ""} isOptionEqualToValue={(option, value) => option.code === value.code} renderInput={(params) => <TextField {...params} required label="اسم الفرع" placeholder="ابحثي باسم الفرع" />} />
             {isVacation && <TextField fullWidth required select label="نوع الإجازة" value={form.vacationType} onChange={(event) => updateForm("vacationType", event.target.value)}>{(init?.vacationTypes || []).map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}</TextField>}
           </Box>
         </CardContent></Card>
@@ -106,7 +115,7 @@ export default function NewVisitPage() {
           <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", textAlign: "center", mt: 1.8 }}><Box><Typography variant="body2">🎯 الهدف</Typography><Typography fontSize={21} fontWeight={900}>{number(targetPieces)}</Typography></Box><Box sx={{ borderInline: "1px solid #e5e9f1" }}><Typography variant="body2">✅ المحقق</Typography><Typography fontSize={21} fontWeight={900} color="#109553">{number(actualPieces)}</Typography></Box><Box><Typography variant="body2">📈 الإنجاز</Typography><Typography fontSize={21} fontWeight={900} color="primary.main">{progress}%</Typography></Box></Box>
         </CardContent></Card>}
 
-        {!isVacation && <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        {!!form.reportType && !isVacation && <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}><Typography fontWeight={900}>المنتجات</Typography><Typography variant="caption" color="text.secondary">اكتبي المحقق فقط للمنتجات التي تم تسجيلها</Typography></Stack>
           {Object.entries(productsByCategory).map(([category, products]) => {
             const totals = categoryTotals[category];
@@ -133,14 +142,14 @@ export default function NewVisitPage() {
           })}
         </CardContent></Card>}
 
-        {!isVacation && <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        {!!form.reportType && !isVacation && <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography fontWeight={900} sx={{ mb: 2 }}>بيانات العملاء {isVoucher ? "والفاوتشر" : ""}</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 2 }}>
             <TextField type="number" label="عملاء إيجابيون" value={form.positiveConsumers} onChange={(event) => updateForm("positiveConsumers", event.target.value)} inputProps={{ min: 0 }} />
             <TextField type="number" label="عملاء سلبيون" value={form.negativeConsumers} onChange={(event) => updateForm("negativeConsumers", event.target.value)} inputProps={{ min: 0 }} />
             <TextField type="number" label="إجمالي العملاء" value={Number(form.positiveConsumers || 0) + Number(form.negativeConsumers || 0)} InputProps={{ readOnly: true }} />
             <TextField type="number" label="هدف العملاء اليومي" value={init?.targetConsumers ?? 0} InputProps={{ readOnly: true }} helperText="يتم جلبه تلقائيًا من الهدف" />
-            {isVoucher && <TextField type="number" label="عدد الفاوتشر" value={form.vouchers} onChange={(event) => updateForm("vouchers", event.target.value)} inputProps={{ min: 0 }} />}
+            {isVoucher && <TextField required type="number" label="عدد الفاوتشر" value={form.vouchers} onChange={(event) => updateForm("vouchers", event.target.value)} inputProps={{ min: 1, step: 1 }} helperText="رقم صحيح أكبر من صفر" />}
           </Box>
         </CardContent></Card>}
         <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}><TextField fullWidth multiline minRows={3} label="ملاحظة" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} placeholder="أي ملاحظة تودين إضافتها للتقرير" /><Button type="submit" disabled={saving} variant="contained" size="large" endIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveRoundedIcon />} sx={{ mt: 2.5, minWidth: 180, py: 1.25 }}>{saving ? "جارٍ الحفظ..." : "حفظ التقرير"}</Button></CardContent></Card>
