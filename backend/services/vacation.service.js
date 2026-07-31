@@ -77,7 +77,7 @@ function getMonthHeader(headers, date) {
   return findHeader(headers, [MONTH_HEADERS[parsedDate.getMonth()]]);
 }
 
-async function syncVacationDelegateBalance(vacationSheet, delegateId, reports, { date, incrementMonth = false } = {}) {
+async function syncVacationDelegateBalance(vacationSheet, delegateId, reports, { date, incrementMonth = false, reconcile = false } = {}) {
   const recordIndex = vacationSheet.rows.findIndex((row) => matchesDelegate(row, delegateId));
   if (recordIndex === -1) {
     throw new Error("No annual-leave balance was found for this delegate in VacationDelegate");
@@ -90,7 +90,8 @@ async function syncVacationDelegateBalance(vacationSheet, delegateId, reports, {
   if (!consumedHeader) throw new Error("VacationDelegate is missing the TotalConsumed column");
 
   const existingConsumed = toNumber(record[consumedHeader]);
-  const consumed = Math.max(existingConsumed, countAnnualVacationReports(reports, delegateId));
+  const reportedConsumed = countAnnualVacationReports(reports, delegateId);
+  const consumed = reconcile ? reportedConsumed : Math.max(existingConsumed, reportedConsumed);
   const updatedRecord = { ...record, [consumedHeader]: consumed };
 
   if (remainingHeader) {
@@ -98,13 +99,25 @@ async function syncVacationDelegateBalance(vacationSheet, delegateId, reports, {
     updatedRecord[remainingHeader] = Math.max(total - consumed, 0);
   }
 
-  const monthHeader = incrementMonth ? getMonthHeader(vacationSheet.headers, date) : null;
-  if (monthHeader) {
+  if (reconcile) {
+    const annualDays = getAnnualVacationDays(reports, delegateId);
+    MONTH_HEADERS.forEach((monthName, monthIndex) => {
+      const monthHeader = findHeader(vacationSheet.headers, [monthName]);
+      if (!monthHeader) return;
+      updatedRecord[monthHeader] = annualDays.filter((day) => {
+        const parsedDate = new Date(`${day.date}T12:00:00`);
+        return !Number.isNaN(parsedDate.getTime()) && parsedDate.getMonth() === monthIndex;
+      }).length;
+    });
+  } else {
+    const monthHeader = incrementMonth ? getMonthHeader(vacationSheet.headers, date) : null;
+    if (monthHeader) {
     const month = toDate(date).slice(0, 7);
     const reportedForMonth = getAnnualVacationDays(reports, delegateId)
       .filter((day) => day.date.slice(0, 7) === month)
       .length;
     updatedRecord[monthHeader] = Math.max(toNumber(record[monthHeader]), reportedForMonth);
+    }
   }
 
   const rowNumber = vacationSheet.rowNumbers?.[recordIndex] || recordIndex + 2;

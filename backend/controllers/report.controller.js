@@ -1,4 +1,4 @@
-const { createReport, getReportsForDelegate } = require("../services/report.service");
+const { createReport, getReportForDelegate, getReportsForDelegate, updateReport } = require("../services/report.service");
 
 async function getReports(req, res) {
   try {
@@ -18,4 +18,22 @@ async function addReport(req, res) {
   }
 }
 
-module.exports = { addReport, getReports };
+async function getReport(req, res) {
+  try {
+    const data = await getReportForDelegate(req.user, req.params.reportId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({ success: false, message: error.message });
+  }
+}
+
+async function editReport(req, res) {
+  try {
+    const data = await updateReport(req.user, req.params.reportId, req.body);
+    return res.json({ success: true, message: "Report updated successfully", data });
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({ success: false, message: error.message });
+  }
+}
+
+module.exports = { addReport, editReport, getReport, getReports };

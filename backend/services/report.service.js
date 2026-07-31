@@ -2,10 +2,12 @@ const { randomUUID } = require("crypto");
 const {
   appendSheetRows,
   currentMonth,
+  ensureSheetHeaders,
   getSheetRows,
   toDate,
   toMonth,
   toNumber,
+  updateSheetRow,
 } = require("./sheets.service");
 const { canonicalReportType } = require("../utils/report-types");
 const { isAnnualVacation, syncVacationDelegateBalance } = require("./vacation.service");
@@ -19,6 +21,7 @@ const {
 
 const REPORT_SHEET = "Reports";
 const REPORT_TYPES = new Set(["Sales", "Vouchers", "Vacation"]);
+const REPORT_AUDIT_HEADERS = ["LastModifiedAt", "LastModifiedBy", "ModificationType", "EditCount"];
 
 function reportMonth(report) {
   const month = toMonth(report.Month);
@@ -348,7 +351,7 @@ function getTargetsForDate(targets, user, date, branch) {
   };
 }
 
-function buildRecord({ user, payload, reportType, date, branch, supervisor, product, isFirst, reportId, targetConsumers }) {
+function buildRecord({ user, payload, reportType, date, branch, supervisor, product, isFirst, reportId, targetConsumers, audit = {} }) {
   const hasConsumerFields = reportType !== "Vacation" && isFirst;
   const positiveConsumers = hasConsumerFields
     ? requireEnteredNonNegativeInteger(payload.positiveConsumers, "Positive consumers")
@@ -386,19 +389,102 @@ function buildRecord({ user, payload, reportType, date, branch, supervisor, prod
     TotalConsumer: hasConsumerFields ? positiveConsumers + negativeConsumers : "",
     TargetConsumer: isFirst && targetConsumers ? targetConsumers : "",
     Notes: isFirst ? safeText(payload.notes) : "",
-    CreatedAt: new Date().toISOString(),
+    CreatedAt: audit.createdAt || new Date().toISOString(),
+    LastModifiedAt: audit.lastModifiedAt || "",
+    LastModifiedBy: audit.lastModifiedBy || "",
+    ModificationType: audit.modificationType || "إنشاء التقرير",
+    EditCount: audit.editCount ?? 0,
   };
 }
 
-async function createReport(user, payload) {
+function reportMatchesDateAndType(report, delegateId, date, reportType, excludedReportId = "") {
+  if (!matchesDelegate(report, delegateId)) return false;
+  if (toDate(report.Date) !== date) return false;
+  if (canonicalReportType(report.ReportType) !== reportType) return false;
+  return String(report.UUID || "").trim() !== String(excludedReportId || "").trim();
+}
+
+function ensureNoDuplicateReport(rows, user, date, reportType, excludedReportId = "") {
+  const delegateId = user.delegateId || user.id;
+  if (rows.some((report) => reportMatchesDateAndType(report, delegateId, date, reportType, excludedReportId))) {
+    throw new Error("يوجد تقرير من نفس النوع مسجل بالفعل لهذا التاريخ. افتحيه من تقاريري للتعديل بدلًا من إضافة زيارة جديدة.");
+  }
+}
+
+function productQuantities(rows) {
+  return rows
+    .filter((report) => String(report.ProductID || "").trim())
+    .map((report) => `${String(report.ProductID).trim()}:${toNumber(report.ActualPieces)}`)
+    .sort()
+    .join("|");
+}
+
+function modificationType(existingRows, { reportType, date, branch, supervisor, payload, products }) {
+  const first = existingRows[0] || {};
+  const changes = [];
+  if (toDate(first.Date) !== date) changes.push("التاريخ");
+  if (canonicalReportType(first.ReportType) !== reportType) changes.push("نوع التقرير");
+  if (String(first.BranchID || "").trim() !== String(branch?.BranchID || "").trim()) changes.push("الفرع");
+  if (String(first.SupervisorsID || "").trim() !== String(supervisor?.SupervisorsID || "").trim()) changes.push("المشرف");
+  if (safeText(first.VacationType, 100) !== safeText(payload.vacationType, 100)) changes.push("نوع الإجازة");
+  if (toNumber(first.PostiveConsumer) !== toNumber(payload.positiveConsumers) || toNumber(first.NegativeConsumer) !== toNumber(payload.negativeConsumers)) {
+    changes.push("بيانات العملاء");
+  }
+  if (voucherValue(first) !== toNumber(payload.vouchers)) changes.push("عدد الفواتشر");
+  if (safeText(first.Notes) !== safeText(payload.notes)) changes.push("الملاحظات");
+  if (productQuantities(existingRows) !== products.map((product) => `${product.ProductID}:${product.actualPieces}`).sort().join("|")) {
+    changes.push("المنتجات والكميات");
+  }
+  return changes.length ? `تعديل: ${changes.join("، ")}` : "مراجعة دون تغيير البيانات";
+}
+
+function reportAudit(user, existingRows = [], modification = "إنشاء التقرير") {
+  const now = new Date().toISOString();
+  if (!existingRows.length) {
+    return { createdAt: now, modificationType: modification, editCount: 0 };
+  }
+
+  const first = existingRows[0];
+  const editCount = Math.max(0, ...existingRows.map((row) => toNumber(row.EditCount))) + 1;
+  const editorName = safeText(user.name || user.delegateName, 120);
+  const editorId = safeText(user.delegateId || user.id, 80);
+  return {
+    createdAt: first.CreatedAt || now,
+    lastModifiedAt: now,
+    lastModifiedBy: [editorName, editorId].filter(Boolean).join(" - "),
+    modificationType: modification,
+    editCount,
+  };
+}
+
+function emptyProductRecord(record) {
+  return {
+    ...record,
+    ProductID: "",
+    ProductName: "",
+    TargetPieces: "",
+    ActualPieces: "",
+    Vouchers: "",
+    UnitPrice: "",
+    SalesValue: "",
+    PostiveConsumer: "",
+    NegativeConsumer: "",
+    TotalConsumer: "",
+    TargetConsumer: "",
+    Notes: "",
+  };
+}
+
+async function prepareReport(user, payload, reportSheet, { excludedReportId = "" } = {}) {
   const reportType = canonicalReportType(payload.reportType);
   if (!reportType || !REPORT_TYPES.has(reportType)) throw new Error("Choose a valid report type");
 
   const date = toDate(payload.date);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Report date must be in YYYY-MM-DD format");
 
-  const [reportSheet, branchSheet, productSheet, targetSheet, vacationTypeSheet, supervisorSheet, unitPriceSheet] = await Promise.all([
-    getSheetRows(REPORT_SHEET),
+  ensureNoDuplicateReport(reportSheet.rows, user, date, reportType, excludedReportId);
+
+  const [branchSheet, productSheet, targetSheet, vacationTypeSheet, supervisorSheet, unitPriceSheet] = await Promise.all([
     getSheetRows("Branches"),
     getSheetRows("Products"),
     getSheetRows("Targets"),
@@ -464,15 +550,29 @@ async function createReport(user, payload) {
 
   if (!products.length) throw new Error("Add at least one product with a value before submitting");
 
+  return { reportType, date, branch, supervisor, annualVacation, vacationSheet, targetConsumers, products };
+}
+
+async function createReport(user, payload) {
+  const reportSheet = await getSheetRows(REPORT_SHEET);
+  const prepared = await prepareReport(user, payload, reportSheet);
   const reportId = randomUUID();
-  const records = products.map((product, index) => buildRecord({
-    user, payload, reportType, date, branch, supervisor, product, isFirst: index === 0, reportId, targetConsumers,
+  const audit = reportAudit(user);
+  const records = prepared.products.map((product, index) => buildRecord({
+    user,
+    payload,
+    ...prepared,
+    product,
+    isFirst: index === 0,
+    reportId,
+    audit,
   }));
 
-  const sheetUpdate = await appendSheetRows(REPORT_SHEET, reportSheet.headers, records);
-  const vacationUpdate = annualVacation
-    ? await syncVacationDelegateBalance(vacationSheet, user.delegateId || user.id, [...reportSheet.rows, ...records], {
-      date,
+  const headers = await ensureSheetHeaders(REPORT_SHEET, REPORT_AUDIT_HEADERS);
+  const sheetUpdate = await appendSheetRows(REPORT_SHEET, headers, records);
+  const vacationUpdate = prepared.annualVacation
+    ? await syncVacationDelegateBalance(prepared.vacationSheet, user.delegateId || user.id, [...reportSheet.rows, ...records], {
+      date: prepared.date,
       incrementMonth: true,
     })
     : null;
@@ -480,4 +580,72 @@ async function createReport(user, payload) {
   return { reportId, records, sheetUpdate, vacationUpdate };
 }
 
-module.exports = { createReport, getReportsForDelegate, getTargetSummary, getTargetSummaryForDate, makeSummary, buildMonthlyAggregate, resolveReportsPricing };
+async function getReportForDelegate(user, reportId) {
+  const { rows } = await getSheetRows(REPORT_SHEET);
+  const normalizedId = safeText(reportId, 100);
+  const reports = rows.filter((report) => matchesDelegate(report, user.delegateId || user.id) && String(report.UUID || "").trim() === normalizedId);
+  if (!reports.length) {
+    const error = new Error("Report not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  return { reportId: normalizedId, reports: orderByDate(reports).map((report) => ({ ...report, Date: toDate(report.Date) })) };
+}
+
+async function updateReport(user, reportId, payload) {
+  const reportSheet = await getSheetRows(REPORT_SHEET);
+  const normalizedId = safeText(reportId, 100);
+  const existingIndexes = reportSheet.rows
+    .map((report, index) => (matchesDelegate(report, user.delegateId || user.id) && String(report.UUID || "").trim() === normalizedId ? index : -1))
+    .filter((index) => index !== -1);
+  if (!existingIndexes.length) {
+    const error = new Error("Report not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const existingRows = existingIndexes.map((index) => reportSheet.rows[index]);
+  const prepared = await prepareReport(user, payload, reportSheet, { excludedReportId: normalizedId });
+  const audit = reportAudit(user, existingRows, modificationType(existingRows, { ...prepared, payload }));
+  const records = prepared.products.map((product, index) => buildRecord({
+    user,
+    payload,
+    ...prepared,
+    product,
+    isFirst: index === 0,
+    reportId: normalizedId,
+    audit,
+  }));
+  const headers = await ensureSheetHeaders(REPORT_SHEET, REPORT_AUDIT_HEADERS);
+  const updatedRecords = existingIndexes.map((_, index) => records[index] || emptyProductRecord(records[0]));
+  const updates = await Promise.all(existingIndexes.map((rowIndex, index) => updateSheetRow(
+    REPORT_SHEET,
+    headers,
+    reportSheet.rowNumbers[rowIndex],
+    updatedRecords[index]
+  )));
+  const appendedRecords = records.slice(existingIndexes.length);
+  const appended = appendedRecords.length ? await appendSheetRows(REPORT_SHEET, headers, appendedRecords) : null;
+
+  const previousWasAnnualVacation = existingRows.some((report) => report.ReportType === "Vacation" && isAnnualVacation(report.VacationType));
+  const vacationUpdate = previousWasAnnualVacation || prepared.annualVacation
+    ? await syncVacationDelegateBalance(
+      prepared.vacationSheet || await getSheetRows("VacationDelegate"),
+      user.delegateId || user.id,
+      [...reportSheet.rows.filter((report) => String(report.UUID || "").trim() !== normalizedId), ...records],
+      { date: prepared.date, reconcile: true }
+    )
+    : null;
+  const updatedRows = updates.reduce((total, update) => total + (update.updatedRows || 0), 0) + (appended?.updatedRows || 0);
+  const updatedRange = [updates[0]?.updatedRange, appended?.updatedRange].filter(Boolean).join(", ");
+
+  return {
+    reportId: normalizedId,
+    records,
+    sheetUpdate: { updatedRows, updatedRange },
+    vacationUpdate,
+    audit,
+  };
+}
+
+module.exports = { createReport, getReportForDelegate, getReportsForDelegate, getTargetSummary, getTargetSummaryForDate, makeSummary, buildMonthlyAggregate, resolveReportsPricing, updateReport };

@@ -48,7 +48,9 @@ async function getSheetRows(sheetName) {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A:Z`,
+    // Reports now includes audit fields after the original columns. Keep the
+    // read range wider so those fields remain available when the row is edited.
+    range: `${sheetName}!A:AZ`,
   });
   const values = response.data.values || [];
 
@@ -103,7 +105,7 @@ async function updateSheetRow(sheetName, headers, rowNumber, record) {
 
   const response = await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A${rowNumber}:Z${rowNumber}`,
+    range: `${sheetName}!A${rowNumber}:${columnLetter(headers.length)}${rowNumber}`,
     valueInputOption: "RAW",
     requestBody: {
       values: [headers.map((header) => record[header] ?? "")],
@@ -114,6 +116,22 @@ async function updateSheetRow(sheetName, headers, rowNumber, record) {
     updatedRange: response.data.updatedRange || "",
     updatedRows: response.data.updatedRows || 1,
   };
+}
+
+async function ensureSheetHeaders(sheetName, requiredHeaders) {
+  const { headers } = await getSheetRows(sheetName);
+  const additions = requiredHeaders.filter((header) => !headers.includes(header));
+  if (!additions.length) return headers;
+
+  const updatedHeaders = [...headers, ...additions];
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A1:${columnLetter(updatedHeaders.length)}1`,
+    valueInputOption: "RAW",
+    requestBody: { values: [updatedHeaders] },
+  });
+
+  return updatedHeaders;
 }
 
 function toNumber(value) {
@@ -165,4 +183,4 @@ function currentMonth() {
   return currentDate().slice(0, 7);
 }
 
-module.exports = { appendSheetRows, currentDate, currentMonth, getSheetRows, toDate, toMonth, toNumber, updateSheetRow };
+module.exports = { appendSheetRows, currentDate, currentMonth, ensureSheetHeaders, getSheetRows, toDate, toMonth, toNumber, updateSheetRow };

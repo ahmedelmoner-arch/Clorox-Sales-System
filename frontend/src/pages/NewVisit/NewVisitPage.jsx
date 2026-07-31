@@ -4,10 +4,11 @@ import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
+import { useSearchParams } from "react-router-dom";
 import AppShell from "../../components/layout/AppShell";
 import MobileScreenHeader from "../../components/layout/MobileScreenHeader";
 import { getVisitInit } from "../../services/visit.service";
-import { saveReport } from "../../services/report.service";
+import { getReport, saveReport, updateReport } from "../../services/report.service";
 import { useSession } from "../../context/SessionContext";
 import { getCairoDate } from "../../utils/date";
 
@@ -27,12 +28,54 @@ function SalesValuePreview({ visible, value, pieces, month, missingPriceCount })
 
 export default function NewVisitPage() {
   const { user } = useSession();
+  const [searchParams] = useSearchParams();
+  const editReportId = searchParams.get("edit") || "";
+  const isEditing = Boolean(editReportId);
   const [init, setInit] = useState(null);
   const [entries, setEntries] = useState({});
   const [loading, setLoading] = useState(true);
+  const [editingLoad, setEditingLoad] = useState(isEditing);
+  const [editingReports, setEditingReports] = useState([]);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState({ open: false, message: "", severity: "success" });
   const [form, setForm] = useState({ date: getCairoDate(), reportType: "", branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" });
+
+  useEffect(() => {
+    if (!editReportId) {
+      setEditingReports([]);
+      setEditingLoad(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setEditingLoad(true);
+    getReport(editReportId)
+      .then((data) => {
+        if (cancelled) return;
+        const reports = data?.reports || [];
+        const first = reports[0];
+        if (!first) throw new Error("لم يتم العثور على التقرير.");
+        setEditingReports(reports);
+        setForm({
+          date: first.Date || getCairoDate(),
+          reportType: first.ReportType || "",
+          branch: first.BranchID ? { code: first.BranchID, name: first.BranchName || "" } : null,
+          supervisor: first.SupervisorsID ? { id: first.SupervisorsID, name: first.SupervisorName || "" } : null,
+          vacationType: first.VacationType || "",
+          vouchers: first.Vouchers ?? "",
+          positiveConsumers: first.PostiveConsumer ?? "",
+          negativeConsumers: first.NegativeConsumer ?? "",
+          targetConsumers: first.TargetConsumer ?? "",
+          notes: first.Notes || "",
+        });
+      })
+      .catch((error) => {
+        if (!cancelled) setFeedback({ open: true, severity: "error", message: error.response?.data?.message || error.message || "تعذر تحميل التقرير للتعديل." });
+      })
+      .finally(() => { if (!cancelled) setEditingLoad(false); });
+
+    return () => { cancelled = true; };
+  }, [editReportId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +92,28 @@ export default function NewVisitPage() {
 
     return () => { cancelled = true; };
   }, [form.branch?.code, form.branch?.name, form.date]);
+
+  useEffect(() => {
+    if (!editingReports.length || !init) return;
+    const first = editingReports[0];
+    if (init.targetDate !== first.Date) return;
+    const catalog = new Map((init.products || []).map((product) => [String(product.ProductID), product]));
+    const restoredEntries = editingReports.reduce((result, report) => {
+      const productId = String(report.ProductID || "").trim();
+      if (!productId) return result;
+      const product = catalog.get(productId) || report;
+      result[productId] = {
+        productId,
+        productName: product.ProductName || report.ProductName || productId,
+        targetPieces: Number(init.productTargets?.[productId]?.targetPieces ?? report.TargetPieces ?? 0),
+        unitPrice: Number(product.UnitPrice ?? report.UnitPrice ?? 0),
+        unitPriceConfigured: Boolean(product.unitPriceConfigured ?? Number(product.UnitPrice ?? report.UnitPrice ?? 0)),
+        actualPieces: report.ActualPieces ?? "",
+      };
+      return result;
+    }, {});
+    setEntries(restoredEntries);
+  }, [editingReports, init]);
 
   const productsByCategory = useMemo(() => (init?.products || []).reduce((groups, product) => {
     const category = product.Category || "منتجات أخرى";
@@ -107,9 +172,14 @@ export default function NewVisitPage() {
     try {
       setSaving(true);
       const products = Object.values(entries).filter((item) => Number(item.actualPieces) > 0);
-      const savedReport = await saveReport({ date: form.date, reportType: form.reportType, branchId: isVacation ? "" : form.branch?.code, branchName: isVacation ? "" : form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products });
-      setEntries({});
-      setForm((current) => ({ ...current, branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" }));
+      const reportPayload = { date: form.date, reportType: form.reportType, branchId: isVacation ? "" : form.branch?.code, branchName: isVacation ? "" : form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products };
+      const savedReport = isEditing ? await updateReport(editReportId, reportPayload) : await saveReport(reportPayload);
+      if (isEditing) {
+        setEditingReports(savedReport?.records || editingReports);
+      } else {
+        setEntries({});
+        setForm((current) => ({ ...current, branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" }));
+      }
       const savedRows = savedReport?.sheetUpdate?.updatedRows || products.length || 1;
       const savedRange = savedReport?.sheetUpdate?.updatedRange;
       setFeedback({ open: true, severity: "success", message: `تم الحفظ في تبويب Reports على Google Sheets (${savedRows} صف${savedRows === 1 ? "" : "وف"})${savedRange ? ` — ${savedRange}` : ""}.` });
@@ -120,9 +190,12 @@ export default function NewVisitPage() {
 
   if (loading) return <AppShell hideHeader><MobileScreenHeader title="تسجيل تقرير" subtitle="جارٍ تحميل بيانات التقرير" /><Box sx={{ minHeight: 360, display: "grid", placeItems: "center" }}><CircularProgress /></Box></AppShell>;
 
+  if (editingLoad) return <AppShell hideHeader><MobileScreenHeader title="تعديل تقرير" subtitle="جارٍ تحميل بيانات التقرير" /><Box sx={{ minHeight: 360, display: "grid", placeItems: "center" }}><CircularProgress /></Box></AppShell>;
+
   return (
     <AppShell hideHeader>
       <MobileScreenHeader title="تسجيل تقرير" subtitle="أضيفي بيانات الزيارة أو المبيعات" />
+      {isEditing && <Alert severity="info" sx={{ mb: 2 }}>أنتِ الآن تعدّلين التقرير نفسه. سيُسجَّل نوع التعديل ووقته في Google Sheets.</Alert>}
       <SalesValuePreview visible={!isVacation && Boolean(form.reportType)} value={totalSalesValue} pieces={actualPieces} month={init?.unitPriceMonth} missingPriceCount={selectedProductsWithoutPrice.length} />
       <Box component="form" onSubmit={submit}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1} sx={{ mb: 2.5 }}>

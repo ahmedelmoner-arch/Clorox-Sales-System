@@ -12,6 +12,8 @@ import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import { useNavigate } from "react-router-dom";
 import AppShell from "../../components/layout/AppShell";
 import { getReports } from "../../services/report.service";
 import { getCairoDate } from "../../utils/date";
@@ -79,6 +81,7 @@ function MonthlyAggregateDialog({ aggregate, month, onClose }) {
 }
 
 export default function ReportsPage({ forcedType }) {
+  const navigate = useNavigate();
   const [month, setMonth] = useState(getCairoDate().slice(0, 7));
   const [type, setType] = useState(forcedType || "");
   const [data, setData] = useState(null);
@@ -118,6 +121,7 @@ export default function ReportsPage({ forcedType }) {
       return <Card key={`${first.UUID}-${first.Date}`} role="button" tabIndex={0} elevation={0} onClick={() => setSelectedReport(reports)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedReport(reports); } }} sx={{ position: "relative", overflow: "hidden", cursor: "pointer", border: "1px solid #dfe7f1", borderRadius: 4, bgcolor: reportType.tint, boxShadow: "0 5px 13px rgba(25,43,76,.04)", transition: "transform .18s ease, box-shadow .18s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: "0 10px 21px rgba(25,43,76,.1)" }, "&:focus-visible": { outline: `3px solid ${reportType.color}55`, outlineOffset: 2 }, "&::after": { content: '\"\"', position: "absolute", insetBlock: 0, right: 0, width: 4, bgcolor: reportType.color } }}><CardContent sx={{ p: 1.7 }}><Stack direction="row" alignItems="center" spacing={1.35}><Box sx={{ width: 43, height: 43, flex: "0 0 auto", display: "grid", placeItems: "center", borderRadius: "50%", color: reportType.color, bgcolor: "#fff" }}>{reportType.icon}</Box><Box sx={{ minWidth: 0, flex: 1 }}><Typography fontWeight={800} noWrap>{first.BranchName || "إجازة"}</Typography><Stack direction="row" spacing={.55} alignItems="center" sx={{ mt: .2 }}><CalendarMonthRoundedIcon sx={{ color: reportType.color, fontSize: 15 }} /><Typography variant="caption" color="text.secondary">{formatReportDay(first.Date)}</Typography></Stack></Box><Chip size="small" label={reportType.label} sx={{ color: reportType.color, bgcolor: "#fff", fontWeight: 700, border: `1px solid ${reportType.color}33` }} /></Stack></CardContent></Card>;
     })}</Stack>
     <ReportDetailsDialog reports={selectedReport} onClose={() => setSelectedReport(null)} />
+    {selectedReport?.[0]?.UUID && <Button variant="contained" color="primary" startIcon={<EditRoundedIcon />} onClick={() => navigate(`/visit?edit=${encodeURIComponent(selectedReport[0].UUID)}`)} sx={{ position: "fixed", zIndex: 1401, bottom: { xs: 22, sm: 34 }, left: { xs: 22, sm: 34 }, borderRadius: 3, boxShadow: "0 10px 24px rgba(25, 118, 210, .28)" }}>تعديل التقرير</Button>}
     <MonthlyAggregateDialog aggregate={isMonthlyAggregateOpen ? monthlyAggregate : null} month={month} onClose={() => setMonthlyAggregateOpen(false)} />
   </AppShell>;
 }
