@@ -254,9 +254,9 @@ function requireNonNegativeInteger(value, fieldName) {
   return amount;
 }
 
-function requirePositiveInteger(value, fieldName) {
+function requireEnteredNonNegativeInteger(value, fieldName) {
+  if (String(value ?? "").trim() === "") throw new Error(`${fieldName} is required`);
   const amount = requireNonNegativeInteger(value, fieldName);
-  if (amount < 1) throw new Error(`${fieldName} must be a whole number greater than zero`);
   return amount;
 }
 
@@ -294,8 +294,13 @@ function getTargetsForDate(targets, user, date, branch) {
 }
 
 function buildRecord({ user, payload, reportType, date, branch, supervisor, product, isFirst, reportId, targetConsumers }) {
-  const positiveConsumers = isFirst ? requireNonNegativeInteger(payload.positiveConsumers, "Positive consumers") : 0;
-  const negativeConsumers = isFirst ? requireNonNegativeInteger(payload.negativeConsumers, "Negative consumers") : 0;
+  const hasConsumerFields = reportType !== "Vacation" && isFirst;
+  const positiveConsumers = hasConsumerFields
+    ? requireEnteredNonNegativeInteger(payload.positiveConsumers, "Positive consumers")
+    : "";
+  const negativeConsumers = hasConsumerFields
+    ? requireEnteredNonNegativeInteger(payload.negativeConsumers, "Negative consumers")
+    : "";
 
   return {
     UUID: reportId,
@@ -311,13 +316,15 @@ function buildRecord({ user, payload, reportType, date, branch, supervisor, prod
     VacationType: reportType === "Vacation" ? safeText(payload.vacationType, 100) : "",
     ProductID: product?.ProductID || "",
     ProductName: product?.ProductName || "",
-    TargetPieces: product?.targetPieces || 0,
-    ActualPieces: product?.actualPieces || 0,
-    Amount: reportType === "Vouchers" && isFirst ? requirePositiveInteger(payload.vouchers, "Vouchers") : 0,
+    TargetPieces: product?.targetPieces || "",
+    ActualPieces: product?.actualPieces || "",
+    Amount: reportType === "Vouchers" && isFirst
+      ? requireEnteredNonNegativeInteger(payload.vouchers, "Vouchers")
+      : "",
     PostiveConsumer: positiveConsumers,
     NegativeConsumer: negativeConsumers,
-    TotalConsumer: positiveConsumers + negativeConsumers,
-    TargetConsumer: isFirst ? targetConsumers : 0,
+    TotalConsumer: hasConsumerFields ? positiveConsumers + negativeConsumers : "",
+    TargetConsumer: isFirst && targetConsumers ? targetConsumers : "",
     Notes: isFirst ? safeText(payload.notes) : "",
     CreatedAt: new Date().toISOString(),
   };
@@ -354,7 +361,11 @@ async function createReport(user, payload) {
     if (!validVacation) throw new Error("Choose a valid vacation type");
   }
 
-  if (reportType === "Vouchers") requirePositiveInteger(payload.vouchers, "Vouchers");
+  if (reportType !== "Vacation") {
+    requireEnteredNonNegativeInteger(payload.positiveConsumers, "Positive consumers");
+    requireEnteredNonNegativeInteger(payload.negativeConsumers, "Negative consumers");
+  }
+  if (reportType === "Vouchers") requireEnteredNonNegativeInteger(payload.vouchers, "Vouchers");
 
   const annualVacation = reportType === "Vacation" && isAnnualVacation(payload.vacationType);
   const vacationSheet = annualVacation ? await getSheetRows("VacationDelegate") : null;

@@ -12,6 +12,10 @@ import { getCairoDate } from "../../utils/date";
 
 const typeLabels = { Sales: "مبيعات", Vouchers: "فاوتشر", Vacation: "إجازة" };
 const number = (value) => Number(value || 0).toLocaleString("ar-EG");
+const isEnteredNonNegativeInteger = (value) => {
+  const text = String(value ?? "").trim();
+  return text !== "" && Number.isInteger(Number(text)) && Number(text) >= 0;
+};
 
 export default function NewVisitPage() {
   const { user } = useSession();
@@ -68,8 +72,14 @@ export default function NewVisitPage() {
     if (!form.supervisor) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم المشرف أولًا." });
     if (!form.branch) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم الفرع أولًا." });
     if (isVacation && !form.vacationType) return setFeedback({ open: true, severity: "warning", message: "اختاري نوع الإجازة أولًا." });
-    if (isVoucher && (!Number.isInteger(Number(form.vouchers)) || Number(form.vouchers) < 1)) {
-      return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد الفواتشر برقم صحيح أكبر من صفر." });
+    if (!isVacation && !isEnteredNonNegativeInteger(form.positiveConsumers)) {
+      return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد العملاء الإيجابيين برقم صحيح." });
+    }
+    if (!isVacation && !isEnteredNonNegativeInteger(form.negativeConsumers)) {
+      return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد العملاء السلبيين برقم صحيح." });
+    }
+    if (isVoucher && !isEnteredNonNegativeInteger(form.vouchers)) {
+      return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد الفواتشر برقم صحيح." });
     }
     try {
       setSaving(true);
@@ -145,11 +155,11 @@ export default function NewVisitPage() {
         {!!form.reportType && !isVacation && <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography fontWeight={900} sx={{ mb: 2 }}>بيانات العملاء {isVoucher ? "والفاوتشر" : ""}</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 2 }}>
-            <TextField type="number" label="عملاء إيجابيون" value={form.positiveConsumers} onChange={(event) => updateForm("positiveConsumers", event.target.value)} inputProps={{ min: 0 }} />
-            <TextField type="number" label="عملاء سلبيون" value={form.negativeConsumers} onChange={(event) => updateForm("negativeConsumers", event.target.value)} inputProps={{ min: 0 }} />
+            <TextField required type="number" label="عملاء إيجابيون" value={form.positiveConsumers} onChange={(event) => updateForm("positiveConsumers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود عملاء" />
+            <TextField required type="number" label="عملاء سلبيون" value={form.negativeConsumers} onChange={(event) => updateForm("negativeConsumers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود عملاء" />
             <TextField type="number" label="إجمالي العملاء" value={Number(form.positiveConsumers || 0) + Number(form.negativeConsumers || 0)} InputProps={{ readOnly: true }} />
             <TextField type="number" label="هدف العملاء اليومي" value={init?.targetConsumers ?? 0} InputProps={{ readOnly: true }} helperText="يتم جلبه تلقائيًا من الهدف" />
-            {isVoucher && <TextField required type="number" label="عدد الفاوتشر" value={form.vouchers} onChange={(event) => updateForm("vouchers", event.target.value)} inputProps={{ min: 1, step: 1 }} helperText="رقم صحيح أكبر من صفر" />}
+            {isVoucher && <TextField required type="number" label="عدد الفاوتشر" value={form.vouchers} onChange={(event) => updateForm("vouchers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود فواتشر" />}
           </Box>
         </CardContent></Card>}
         <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}><TextField fullWidth multiline minRows={3} label="ملاحظة" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} placeholder="أي ملاحظة تودين إضافتها للتقرير" /><Button type="submit" disabled={saving} variant="contained" size="large" endIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveRoundedIcon />} sx={{ mt: 2.5, minWidth: 180, py: 1.25 }}>{saving ? "جارٍ الحفظ..." : "حفظ التقرير"}</Button></CardContent></Card>
