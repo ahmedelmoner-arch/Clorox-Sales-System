@@ -3,6 +3,7 @@ import { Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import AppShell from "../../components/layout/AppShell";
 import MobileScreenHeader from "../../components/layout/MobileScreenHeader";
 import { getVisitInit } from "../../services/visit.service";
@@ -16,6 +17,13 @@ const isEnteredNonNegativeInteger = (value) => {
   const text = String(value ?? "").trim();
   return text !== "" && Number.isInteger(Number(text)) && Number(text) >= 0;
 };
+
+const priceMonthLabels = { Jan: "يناير", Feb: "فبراير", Mar: "مارس", Apr: "أبريل", May: "مايو", Jun: "يونيو", Jul: "يوليو", Aug: "أغسطس", Sep: "سبتمبر", Oct: "أكتوبر", Nov: "نوفمبر", Dec: "ديسمبر" };
+
+function SalesValuePreview({ visible, value, pieces, month, missingPriceCount }) {
+  if (!visible) return null;
+  return <Card elevation={0} sx={{ mb: 2, overflow: "hidden", borderRadius: 4, color: "#fff", background: "linear-gradient(115deg, #0f766e, #14b8a6)", boxShadow: "0 12px 24px rgba(13,148,136,.2)" }}><CardContent sx={{ p: { xs: 2, sm: 2.5 } }}><Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}><Box><Typography variant="body2" sx={{ opacity: .84, fontWeight: 700 }}>قيمة المبيعات المتوقعة</Typography><Typography sx={{ mt: .35, fontSize: { xs: 29, sm: 34 }, lineHeight: 1.1, fontWeight: 900 }}>{number(value)} ج.م</Typography><Typography variant="caption" sx={{ display: "block", mt: .75, opacity: .85 }}>محسوبة من {number(pieces)} قطعة بأسعار {priceMonthLabels[month] || month || "الشهر المحدد"}</Typography></Box><Box sx={{ width: 54, height: 54, display: "grid", placeItems: "center", borderRadius: 3, bgcolor: "rgba(255,255,255,.16)" }}><PaidRoundedIcon sx={{ fontSize: 30 }} /></Box></Stack>{missingPriceCount > 0 && <Alert severity="warning" sx={{ mt: 1.5, bgcolor: "rgba(255,255,255,.94)" }}>يوجد {number(missingPriceCount)} منتج مختار بلا سعر في هذا الشهر؛ أضيفي السعر في تبويب UnitPrice قبل الحفظ.</Alert>}</CardContent></Card>;
+}
 
 export default function NewVisitPage() {
   const { user } = useSession();
@@ -59,6 +67,8 @@ export default function NewVisitPage() {
   const isVoucher = form.reportType === "Vouchers";
   const targetPieces = Object.values(init?.productTargets || {}).reduce((total, item) => total + Number(item.targetPieces || 0), 0);
   const actualPieces = Object.values(entries).reduce((total, item) => total + Number(item.actualPieces || 0), 0);
+  const totalSalesValue = Object.values(entries).reduce((total, item) => total + Number(item.actualPieces || 0) * Number(item.unitPrice || 0), 0);
+  const selectedProductsWithoutPrice = Object.values(entries).filter((item) => Number(item.actualPieces || 0) > 0 && !item.unitPriceConfigured);
   const progress = targetPieces ? Math.round((actualPieces / targetPieces) * 100) : 0;
 
   function updateForm(field, value) { setForm((current) => ({ ...current, [field]: value })); }
@@ -73,7 +83,7 @@ export default function NewVisitPage() {
   function updateEntry(product, actualPieces) {
     const targetPieces = Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0);
     const unitPrice = Number(product.UnitPrice || 0);
-    setEntries((current) => ({ ...current, [product.ProductID]: { productId: product.ProductID, productName: product.ProductName, targetPieces, unitPrice, actualPieces } }));
+    setEntries((current) => ({ ...current, [product.ProductID]: { productId: product.ProductID, productName: product.ProductName, targetPieces, unitPrice, unitPriceConfigured: product.unitPriceConfigured, actualPieces } }));
   }
 
   async function submit(event) {
@@ -90,6 +100,9 @@ export default function NewVisitPage() {
     }
     if (isVoucher && !isEnteredNonNegativeInteger(form.vouchers)) {
       return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد الفواتشر برقم صحيح." });
+    }
+    if (selectedProductsWithoutPrice.length) {
+      return setFeedback({ open: true, severity: "warning", message: "أضيفي السعر الشهري للمنتجات المختارة في تبويب UnitPrice قبل حفظ التقرير." });
     }
     try {
       setSaving(true);
@@ -110,6 +123,7 @@ export default function NewVisitPage() {
   return (
     <AppShell hideHeader>
       <MobileScreenHeader title="تسجيل تقرير" subtitle="أضيفي بيانات الزيارة أو المبيعات" />
+      <SalesValuePreview visible={!isVacation && Boolean(form.reportType)} value={totalSalesValue} pieces={actualPieces} month={init?.unitPriceMonth} missingPriceCount={selectedProductsWithoutPrice.length} />
       <Box component="form" onSubmit={submit}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1} sx={{ mb: 2.5 }}>
           <Box><Typography variant="h5" fontWeight={900}>إضافة تقرير جديد</Typography><Typography color="text.secondary">أدخلي البيانات ثم احفظيها مباشرة في ملف التقارير.</Typography></Box>

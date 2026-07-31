@@ -10,6 +10,12 @@ const {
 const { canonicalReportType } = require("../utils/report-types");
 const { isAnnualVacation, syncVacationDelegateBalance } = require("./vacation.service");
 const { createProductOrder } = require("../utils/product-order");
+const {
+  UNIT_PRICE_SHEET,
+  createUnitPriceCatalog,
+  getMonthlyUnitPrice,
+  hasValidUnitPrice,
+} = require("./unit-price.service");
 
 const REPORT_SHEET = "Reports";
 const REPORT_TYPES = new Set(["Sales", "Vouchers", "Vacation"]);
@@ -40,12 +46,16 @@ function voucherValue(report) {
   return toNumber(hasValue(report.Vouchers) ? report.Vouchers : report.Amount);
 }
 
-function resolveReportPricing(report, catalog) {
+function resolveReportPricing(report, catalog, unitPriceCatalog) {
   const product = catalog.get(String(report.ProductID || "").trim()) || {};
-  const hasStoredPrice = hasValue(report.UnitPrice);
-  const hasCatalogPrice = hasValue(product.UnitPrice);
+  const monthlyPrice = getMonthlyUnitPrice(unitPriceCatalog, report.ProductID, report.Date || report.Month);
+  const hasStoredPrice = hasValidUnitPrice(report.UnitPrice);
+  const hasMonthlyPrice = monthlyPrice.isConfigured;
+  const hasCatalogPrice = hasValidUnitPrice(product.UnitPrice);
   const unitPrice = hasStoredPrice
     ? toNumber(report.UnitPrice)
+    : hasMonthlyPrice
+      ? monthlyPrice.unitPrice
     : hasCatalogPrice
       ? toNumber(product.UnitPrice)
       : 0;
@@ -53,13 +63,20 @@ function resolveReportPricing(report, catalog) {
 
   return {
     ...report,
-    UnitPrice: hasStoredPrice || hasCatalogPrice ? unitPrice : "",
+    UnitPrice: hasStoredPrice || hasMonthlyPrice || hasCatalogPrice ? unitPrice : "",
+    UnitPriceMonth: monthlyPrice.month,
     SalesValue: hasStoredSalesValue
       ? toNumber(report.SalesValue)
       : unitPrice
         ? toNumber(report.ActualPieces) * unitPrice
         : "",
   };
+}
+
+function resolveReportsPricing(reports, products, unitPriceRows) {
+  const productCatalog = new Map(products.map((product) => [String(product.ProductID || "").trim(), product]));
+  const unitPriceCatalog = createUnitPriceCatalog(unitPriceRows);
+  return reports.map((report) => resolveReportPricing(report, productCatalog, unitPriceCatalog));
 }
 
 function matchesTargetBranch(target, branch) {
@@ -145,6 +162,7 @@ function buildMonthlyAggregate(reports, targets, products, delegateId, month) {
         category: product.Category || fallback.Category || fallback.CategoryName || "منتجات أخرى",
         actualPieces: 0,
         targetPieces: 0,
+        salesValue: 0,
       });
     }
     return productTotals.get(productId);
@@ -169,7 +187,9 @@ function buildMonthlyAggregate(reports, targets, products, delegateId, month) {
   reports.forEach((report) => {
     const productId = String(report.ProductID || "").trim();
     if (!productId) return;
-    ensureProduct(productId, report).actualPieces += toNumber(report.ActualPieces);
+    const product = ensureProduct(productId, report);
+    product.actualPieces += toNumber(report.ActualPieces);
+    product.salesValue += toNumber(report.SalesValue);
   });
 
   const productsData = [...productTotals.values()]
@@ -188,10 +208,12 @@ function buildMonthlyAggregate(reports, targets, products, delegateId, month) {
       category: product.category,
       actualPieces: 0,
       targetPieces: 0,
+      salesValue: 0,
       products: [],
     };
     current.actualPieces += product.actualPieces;
     current.targetPieces += product.targetPieces;
+    current.salesValue += product.salesValue;
     current.products.push(product);
     categoryTotals.set(product.category, current);
   });
@@ -224,20 +246,19 @@ function buildMonthlyAggregate(reports, targets, products, delegateId, month) {
 }
 
 async function getReportsForDelegate(user, { month, type, all = false } = {}) {
-  const [reportSheet, targetSheet, productSheet] = await Promise.all([
+  const [reportSheet, targetSheet, productSheet, unitPriceSheet] = await Promise.all([
     getSheetRows(REPORT_SHEET),
     getSheetRows("Targets"),
     getSheetRows("Products"),
+    getSheetRows(UNIT_PRICE_SHEET),
   ]);
   const { rows } = reportSheet;
   const selectedMonth = all ? null : (month || currentMonth());
   const selectedType = type ? canonicalReportType(type) : null;
   const delegateId = user.delegateId || user.id;
-  const productCatalog = new Map(productSheet.rows.map((product) => [String(product.ProductID || "").trim(), product]));
-
   const reportsForMonth = rows.filter((report) => matchesDelegate(report, delegateId) && (all || reportMonth(report) === selectedMonth));
-  const withResolvedTargetConsumers = (matchingReports) => matchingReports.map((report) => ({
-    ...resolveReportPricing(report, productCatalog),
+  const withResolvedTargetConsumers = (matchingReports) => resolveReportsPricing(matchingReports, productSheet.rows, unitPriceSheet.rows).map((report) => ({
+    ...report,
     TargetConsumer: getTargetsForDate(targetSheet.rows, user, toDate(report.Date), report).targetConsumers || toNumber(report.TargetConsumer),
   }));
   const reports = orderByDate(withResolvedTargetConsumers(reportsForMonth.filter((report) => !type || report.ReportType === selectedType)));
@@ -376,13 +397,14 @@ async function createReport(user, payload) {
   const date = toDate(payload.date);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Report date must be in YYYY-MM-DD format");
 
-  const [reportSheet, branchSheet, productSheet, targetSheet, vacationTypeSheet, supervisorSheet] = await Promise.all([
+  const [reportSheet, branchSheet, productSheet, targetSheet, vacationTypeSheet, supervisorSheet, unitPriceSheet] = await Promise.all([
     getSheetRows(REPORT_SHEET),
     getSheetRows("Branches"),
     getSheetRows("Products"),
     getSheetRows("Targets"),
     getSheetRows("VacationType"),
     getSheetRows("Supervisors"),
+    getSheetRows(UNIT_PRICE_SHEET),
   ]);
 
   const branch = reportType === "Vacation"
@@ -418,6 +440,7 @@ async function createReport(user, payload) {
     ? { productTargets: new Map(), targetConsumers: 0 }
     : getTargetsForDate(targetSheet.rows, user, date, branch);
   const productCatalog = new Map(productSheet.rows.map((product) => [String(product.ProductID || "").trim(), product]));
+  const unitPriceCatalog = createUnitPriceCatalog(unitPriceSheet.rows);
   const seenProductIds = new Set();
   const submittedProducts = (Array.isArray(payload.products) ? payload.products : []).map((submitted) => {
     const productId = String(submitted?.productId || "").trim();
@@ -425,7 +448,17 @@ async function createReport(user, payload) {
     if (!productId || !productCatalog.has(productId)) throw new Error("One or more selected products are invalid");
     if (seenProductIds.has(productId)) throw new Error("A product can only be added once per report");
     seenProductIds.add(productId);
-    return { ...productCatalog.get(productId), actualPieces, targetPieces: productTargets.get(productId) || 0 };
+    const product = productCatalog.get(productId);
+    const monthlyPrice = getMonthlyUnitPrice(unitPriceCatalog, productId, date);
+    if (!monthlyPrice.isConfigured) {
+      throw new Error(`Missing UnitPrice for ${product.ProductName || productId} in ${monthlyPrice.month || "the selected month"}`);
+    }
+    return {
+      ...product,
+      UnitPrice: monthlyPrice.unitPrice,
+      actualPieces,
+      targetPieces: productTargets.get(productId) || 0,
+    };
   }).filter((product) => product.actualPieces > 0);
   const products = reportType === "Vacation" ? [null] : submittedProducts;
 
@@ -447,4 +480,4 @@ async function createReport(user, payload) {
   return { reportId, records, sheetUpdate, vacationUpdate };
 }
 
-module.exports = { createReport, getReportsForDelegate, getTargetSummary, getTargetSummaryForDate, makeSummary, buildMonthlyAggregate };
+module.exports = { createReport, getReportsForDelegate, getTargetSummary, getTargetSummaryForDate, makeSummary, buildMonthlyAggregate, resolveReportsPricing };

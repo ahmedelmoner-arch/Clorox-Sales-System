@@ -2,6 +2,7 @@ const branchService = require("./branch.service");
 const productService = require("./product.service");
 const { currentDate, getSheetRows, toDate, toMonth, toNumber } = require("./sheets.service");
 const { canonicalReportType } = require("../utils/report-types");
+const { UNIT_PRICE_SHEET, addMonthlyUnitPrices, priceMonthColumn } = require("./unit-price.service");
 
 function normalizeTargetValue(value) {
   return String(value ?? "").trim();
@@ -24,13 +25,14 @@ function targetBranchKey(target) {
 }
 
 async function getInitData(user, { date, branchId, branchName } = {}) {
-  const [branches, products, reportTypesResult, vacationTypesResult, targetsResult, supervisorsResult] = await Promise.all([
+  const [branches, products, reportTypesResult, vacationTypesResult, targetsResult, supervisorsResult, unitPriceResult] = await Promise.all([
     branchService.getBranches(),
     productService.getAll(),
     getSheetRows("ReportTypes"),
     getSheetRows("VacationType"),
     getSheetRows("Targets"),
     getSheetRows("Supervisors"),
+    getSheetRows(UNIT_PRICE_SHEET),
   ]);
 
   const reportTypes = [
@@ -78,7 +80,8 @@ async function getInitData(user, { date, branchId, branchName } = {}) {
       .filter((supervisor) => supervisor.id && supervisor.name)
       .sort((left, right) => left.name.localeCompare(right.name, "ar")),
     branches,
-    products,
+    products: addMonthlyUnitPrices(products, unitPriceResult.rows, selectedDate),
+    unitPriceMonth: priceMonthColumn(selectedDate),
     productTargets,
     targetConsumers: [...customerTargetsByBranch.values()].reduce((total, value) => total + value, 0),
     targetDate: selectedDate,

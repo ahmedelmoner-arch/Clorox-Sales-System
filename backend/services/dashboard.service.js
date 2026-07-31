@@ -66,6 +66,7 @@ function buildProductPerformance(reports, targets, products, delegateId, month) 
         category: product.Category || "منتجات أخرى",
         target: 0,
         actual: 0,
+        salesValue: 0,
       });
     }
     return performance.get(productId);
@@ -81,7 +82,9 @@ function buildProductPerformance(reports, targets, products, delegateId, month) 
   reports.forEach((report) => {
     const productId = String(report.ProductID || "").trim();
     if (!productId) return;
-    ensure(productId, report.ProductName).actual += toNumber(report.ActualPieces);
+    const product = ensure(productId, report.ProductName);
+    product.actual += toNumber(report.ActualPieces);
+    product.salesValue += toNumber(report.SalesValue);
   });
 
   return [...performance.values()]
@@ -110,9 +113,10 @@ function buildCumulativeDetails(reports, targets, products, delegateId) {
   const productOrder = createProductOrder(products);
   const categoryTotals = new Map();
   productsData.forEach((product) => {
-    const current = categoryTotals.get(product.category) || { category: product.category, target: 0, actual: 0 };
+    const current = categoryTotals.get(product.category) || { category: product.category, target: 0, actual: 0, salesValue: 0 };
     current.target += product.target;
     current.actual += product.actual;
+    current.salesValue += product.salesValue;
     categoryTotals.set(product.category, current);
   });
   const categories = [...categoryTotals.values()].map((category) => ({
@@ -196,9 +200,10 @@ function buildAnalyticsOverview(reports, productPerformance, customerDays) {
   const categories = new Map();
   productPerformance.forEach((product) => {
     const category = product.category || "منتجات أخرى";
-    const current = categories.get(category) || { category, actual: 0, target: 0 };
+    const current = categories.get(category) || { category, actual: 0, target: 0, salesValue: 0 };
     current.actual += product.actual;
     current.target += product.target;
+    current.salesValue += product.salesValue;
     categories.set(category, current);
   });
 
@@ -237,9 +242,11 @@ function buildDailyProductDetails(reports, products) {
       category: catalogProduct.Category || "منتجات أخرى",
       target: 0,
       actual: 0,
+      salesValue: 0,
     };
     current.target += toNumber(report.TargetPieces);
     current.actual += toNumber(report.ActualPieces);
+    current.salesValue += toNumber(report.SalesValue);
     productTotals.set(productId, current);
   });
 
@@ -250,9 +257,10 @@ function buildDailyProductDetails(reports, products) {
 
   const categoryTotals = new Map();
   productsData.forEach((product) => {
-    const current = categoryTotals.get(product.category) || { category: product.category, target: 0, actual: 0 };
+    const current = categoryTotals.get(product.category) || { category: product.category, target: 0, actual: 0, salesValue: 0 };
     current.target += product.target;
     current.actual += product.actual;
+    current.salesValue += product.salesValue;
     categoryTotals.set(product.category, current);
   });
 
