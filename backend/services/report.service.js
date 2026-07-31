@@ -346,10 +346,12 @@ async function createReport(user, payload) {
     getSheetRows("Supervisors"),
   ]);
 
-  const branch = branchSheet.rows.find(
-    (item) => String(item.BranchID || "").trim() === String(payload.branchId || "").trim()
-  );
-  if (!branch) throw new Error("Choose a valid branch");
+  const branch = reportType === "Vacation"
+    ? null
+    : branchSheet.rows.find(
+      (item) => String(item.BranchID || "").trim() === String(payload.branchId || "").trim()
+    );
+  if (reportType !== "Vacation" && !branch) throw new Error("Choose a valid branch");
 
   const supervisor = supervisorSheet.rows.find(
     (item) => String(item.SupervisorsID || "").trim() === String(payload.supervisorId || "").trim()
@@ -373,7 +375,9 @@ async function createReport(user, payload) {
     throw new Error("No annual-leave balance was found for this delegate in VacationDelegate");
   }
 
-  const { productTargets, targetConsumers } = getTargetsForDate(targetSheet.rows, user, date, branch);
+  const { productTargets, targetConsumers } = reportType === "Vacation"
+    ? { productTargets: new Map(), targetConsumers: 0 }
+    : getTargetsForDate(targetSheet.rows, user, date, branch);
   const productCatalog = new Map(productSheet.rows.map((product) => [String(product.ProductID || "").trim(), product]));
   const seenProductIds = new Set();
   const submittedProducts = (Array.isArray(payload.products) ? payload.products : []).map((submitted) => {

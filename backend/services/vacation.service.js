@@ -65,10 +65,8 @@ function getVacationSummary(rows, delegateId, reports = []) {
   const sheetConsumed = toNumber(record.TotalConsumed);
   const reportedConsumed = countAnnualVacationReports(reports, delegateId);
   const consumed = Math.max(sheetConsumed, reportedConsumed);
-  const remainingValue = String(record.TotalRemaining ?? "").trim();
-  const remaining = reportedConsumed > sheetConsumed || !remainingValue
-    ? Math.max(total - consumed, 0)
-    : toNumber(remainingValue);
+  // Keep the card consistent even when TotalRemaining was not refreshed.
+  const remaining = Math.max(total - consumed, 0);
 
   return { total, consumed, remaining };
 }
@@ -102,7 +100,11 @@ async function syncVacationDelegateBalance(vacationSheet, delegateId, reports, {
 
   const monthHeader = incrementMonth ? getMonthHeader(vacationSheet.headers, date) : null;
   if (monthHeader) {
-    updatedRecord[monthHeader] = toNumber(record[monthHeader]) + 1;
+    const month = toDate(date).slice(0, 7);
+    const reportedForMonth = getAnnualVacationDays(reports, delegateId)
+      .filter((day) => day.date.slice(0, 7) === month)
+      .length;
+    updatedRecord[monthHeader] = Math.max(toNumber(record[monthHeader]), reportedForMonth);
   }
 
   const rowNumber = vacationSheet.rowNumbers?.[recordIndex] || recordIndex + 2;

@@ -61,6 +61,14 @@ export default function NewVisitPage() {
   const progress = targetPieces ? Math.round((actualPieces / targetPieces) * 100) : 0;
 
   function updateForm(field, value) { setForm((current) => ({ ...current, [field]: value })); }
+  function updateReportType(reportType) {
+    setForm((current) => ({
+      ...current,
+      reportType,
+      // Vacation reports are not tied to a branch. Clear any hidden selection.
+      ...(reportType === "Vacation" ? { branch: null, targetConsumers: "" } : {}),
+    }));
+  }
   function updateEntry(product, actualPieces) {
     const targetPieces = Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0);
     setEntries((current) => ({ ...current, [product.ProductID]: { productId: product.ProductID, productName: product.ProductName, targetPieces, actualPieces } }));
@@ -70,7 +78,7 @@ export default function NewVisitPage() {
     event.preventDefault();
     if (!form.reportType) return setFeedback({ open: true, severity: "warning", message: "اختاري نوع التقرير أولًا." });
     if (!form.supervisor) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم المشرف أولًا." });
-    if (!form.branch) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم الفرع أولًا." });
+    if (!isVacation && !form.branch) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم الفرع أولًا." });
     if (isVacation && !form.vacationType) return setFeedback({ open: true, severity: "warning", message: "اختاري نوع الإجازة أولًا." });
     if (!isVacation && !isEnteredNonNegativeInteger(form.positiveConsumers)) {
       return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد العملاء الإيجابيين برقم صحيح." });
@@ -84,7 +92,7 @@ export default function NewVisitPage() {
     try {
       setSaving(true);
       const products = Object.values(entries).filter((item) => Number(item.actualPieces) > 0);
-      const savedReport = await saveReport({ date: form.date, reportType: form.reportType, branchId: form.branch?.code, branchName: form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products });
+      const savedReport = await saveReport({ date: form.date, reportType: form.reportType, branchId: isVacation ? "" : form.branch?.code, branchName: isVacation ? "" : form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products });
       setEntries({});
       setForm((current) => ({ ...current, branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" }));
       const savedRows = savedReport?.sheetUpdate?.updatedRows || products.length || 1;
@@ -110,12 +118,12 @@ export default function NewVisitPage() {
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 2 }}>
             <TextField fullWidth type="date" label="التاريخ" value={form.date} onChange={(event) => updateForm("date", event.target.value)} InputLabelProps={{ shrink: true }} />
             <TextField fullWidth label="اسم المندوبة" value={user?.delegateName || user?.name || ""} InputProps={{ readOnly: true }} />
-            <TextField fullWidth required select label="نوع التقرير" value={form.reportType} onChange={(event) => updateForm("reportType", event.target.value)}>
+            <TextField fullWidth required select label="نوع التقرير" value={form.reportType} onChange={(event) => updateReportType(event.target.value)}>
               <MenuItem value="" disabled>اختاري نوع التقرير</MenuItem>
               {(init?.reportTypes || ["Sales", "Vouchers", "Vacation"]).map((type) => <MenuItem key={type} value={type}>{typeLabels[type] || type}</MenuItem>)}
             </TextField>
             <Autocomplete options={init?.supervisors || []} value={form.supervisor} onChange={(_, value) => updateForm("supervisor", value)} getOptionLabel={(option) => option.name || ""} isOptionEqualToValue={(option, value) => option.id === value.id} renderInput={(params) => <TextField {...params} required label="اسم المشرف" placeholder="اختاري اسم المشرف" />} />
-            <Autocomplete options={init?.branches || []} value={form.branch} onChange={(_, value) => updateForm("branch", value)} getOptionLabel={(option) => option.name || ""} isOptionEqualToValue={(option, value) => option.code === value.code} renderInput={(params) => <TextField {...params} required label="اسم الفرع" placeholder="ابحثي باسم الفرع" />} />
+            {!isVacation && <Autocomplete options={init?.branches || []} value={form.branch} onChange={(_, value) => updateForm("branch", value)} getOptionLabel={(option) => option.name || ""} isOptionEqualToValue={(option, value) => option.code === value.code} renderInput={(params) => <TextField {...params} required label="اسم الفرع" placeholder="ابحثي باسم الفرع" />} />}
             {isVacation && <TextField fullWidth required select label="نوع الإجازة" value={form.vacationType} onChange={(event) => updateForm("vacationType", event.target.value)}>{(init?.vacationTypes || []).map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}</TextField>}
           </Box>
         </CardContent></Card>

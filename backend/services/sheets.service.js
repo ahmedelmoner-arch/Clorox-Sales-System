@@ -16,6 +16,33 @@ function asRecord(headers, row) {
   }, {});
 }
 
+function columnLetter(columnNumber) {
+  let value = Number(columnNumber);
+  let label = "";
+
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    label = String.fromCharCode(65 + remainder) + label;
+    value = Math.floor((value - 1) / 26);
+  }
+
+  return label || "A";
+}
+
+async function contiguousTableEndRow(sheetName) {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:A`,
+  });
+  const values = response.data.values || [];
+
+  // Column A is the report UUID. The first empty UUID ends the actual Reports
+  // table, even if a previous append accidentally created data much lower in
+  // the sheet or the grid has preformatted empty rows.
+  const firstEmptyRecord = values.slice(1).findIndex((row) => !String(row?.[0] ?? "").trim());
+  return firstEmptyRecord === -1 ? Math.max(values.length, 1) : firstEmptyRecord + 1;
+}
+
 async function getSheetRows(sheetName) {
   requireSpreadsheetId();
 
@@ -47,9 +74,14 @@ async function appendSheetRows(sheetName, headers, records) {
   requireSpreadsheetId();
   if (!records.length) return;
 
+  const tableEndRow = await contiguousTableEndRow(sheetName);
+  const tableRange = `${sheetName}!A1:${columnLetter(headers.length)}${tableEndRow}`;
+
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A:Z`,
+    // Give Google the exact contiguous table, not the whole column. This makes
+    // the new records land immediately below the final report row.
+    range: tableRange,
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
