@@ -78,3 +78,14 @@
   background: linear-gradient(145deg, #2385ff, #0753ce) !important;
   box-shadow: 0 12px 23px rgba(0,81,202,.35) !important;
 }
+
+html[data-theme="dark"] .clorox-login {
+  background:
+    radial-gradient(circle at 8% 13%, rgba(118,163,219,.18) 0 2px, transparent 2.5px) 0 0 / 17px 17px,
+    linear-gradient(148deg, #101720 0%, #172b43 48%, #0d3b7d 100%);
+}
+
+html[data-theme="dark"] .clorox-login::before { border-color: rgba(73, 137, 214, .18); }
+html[data-theme="dark"] .clorox-login::after { border-color: rgba(16, 80, 169, .34); }
+html[data-theme="dark"] .reference-nav { background: rgba(24,34,47,.96) !important; border-color: #2b3949 !important; }
+html[data-theme="dark"] .reference-add-button { border-color: #101720 !important; }

@@ -6,8 +6,19 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: #f5f7fc; }
+body { margin: 0; min-width: 320px; background: #f5f7fc; transition: background-color .2s ease, color .2s ease; }
 button, input, textarea { font-family: inherit; }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #c6d0e4; border-radius: 999px; }
+
+html[data-theme="dark"] { color: #edf3fb; background: #101720; }
+html[data-theme="dark"] body { background: #101720; color: #edf3fb; }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #40546a; }
+html[data-theme="dark"] .MuiPaper-root { background-color: #18222f !important; color: #edf3fb; border-color: #2b3949 !important; }
+html[data-theme="dark"] .MuiOutlinedInput-root { background-color: #121b26 !important; }
+html[data-theme="dark"] .MuiOutlinedInput-notchedOutline { border-color: #39495c !important; }
+html[data-theme="dark"] .MuiDivider-root { border-color: #2b3949 !important; }
+html[data-theme="dark"] .MuiAccordion-root { background-color: #18222f !important; }
+html[data-theme="dark"] .MuiMenu-paper, html[data-theme="dark"] .MuiDialog-paper { background-color: #18222f !important; }
+html[data-theme="dark"] .MuiTableCell-root { border-color: #2b3949 !important; }
