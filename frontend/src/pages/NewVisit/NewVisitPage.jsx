@@ -171,7 +171,18 @@ export default function NewVisitPage() {
                   const actual = entries[product.ProductID]?.actualPieces || "";
                   const achievement = target && actual !== "" ? Math.round((Number(actual) / target) * 100) : 0;
                   const salesValue = Number(actual || 0) * Number(product.UnitPrice || 0);
-                  return <Box key={product.ProductID} sx={{ py: 1.25, display: "grid", gridTemplateColumns: { xs: "1fr 110px", sm: "minmax(170px, 1fr) 82px 118px 116px 72px" }, gap: 1.5, alignItems: "center" }}><Box><Typography fontWeight={700}>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" display="block">كود: {product.ProductID}</Typography><Typography variant="caption" color="text.secondary">سعر الوحدة: {product.UnitPrice === "" || product.UnitPrice === undefined ? "غير محدد" : `${number(product.UnitPrice)} ج.م`}</Typography></Box><Typography variant="body2" color="text.secondary">الهدف: {number(target)}</Typography><TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} /><Box sx={{ textAlign: { xs: "right", sm: "center" }, gridColumn: { xs: "1 / -1", sm: "auto" }, py: { xs: .3, sm: 0 }, borderTop: { xs: "1px dashed #dce7e8", sm: "none" } }}><Typography variant="caption" color="text.secondary" display="block">قيمة البيع</Typography><Typography color="#0f766e" fontWeight={900}>{number(salesValue)} ج.م</Typography></Box><Typography color="primary.main" fontWeight={800} textAlign="center">{achievement}%</Typography></Box>;
+                  return <Box key={product.ProductID} sx={{ py: 1.1, px: { xs: 0, sm: .5 } }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1}><Typography fontWeight={800} noWrap>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" noWrap>كود: {product.ProductID}</Typography></Stack>
+                    <Box sx={{ mt: .9, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: .75, alignItems: "center" }}>
+                      <Box sx={{ textAlign: "center", py: .6, borderRadius: 1.75, bgcolor: "#f5f8fc" }}><Typography variant="caption" color="text.secondary" display="block">الهدف</Typography><Typography fontWeight={800}>{number(target)}</Typography></Box>
+                      <TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} sx={{ "& .MuiInputBase-root": { height: 42 }, "& .MuiInputBase-input": { textAlign: "center", py: .6 } }} />
+                      <Box sx={{ textAlign: "center", py: .6, borderRadius: 1.75, bgcolor: "#f2f8ff" }}><Typography variant="caption" color="text.secondary" display="block">الإنجاز</Typography><Typography color="primary.main" fontWeight={900}>{achievement}%</Typography></Box>
+                    </Box>
+                    <Box sx={{ mt: .8, pt: .8, borderTop: "1px dashed #dce7e8", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: .75 }}>
+                      <Box sx={{ textAlign: "center" }}><Typography variant="caption" color="text.secondary" display="block">سعر الوحدة</Typography><Typography fontWeight={800}>{product.UnitPrice === "" || product.UnitPrice === undefined ? "غير محدد" : `${number(product.UnitPrice)} ج.م`}</Typography></Box>
+                      <Box sx={{ textAlign: "center", borderInlineStart: "1px solid #e5ebf2" }}><Typography variant="caption" color="text.secondary" display="block">قيمة البيع</Typography><Typography color="#0f766e" fontWeight={900}>{number(salesValue)} ج.م</Typography></Box>
+                    </Box>
+                  </Box>;
                 })}
               </Stack></AccordionDetails>
             </Accordion>;
