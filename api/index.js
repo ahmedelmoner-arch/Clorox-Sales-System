@@ -1,14 +1,35 @@
-const app = require("../backend/app");
+let app;
+
+function loadApp() {
+  if (!app) app = require("../backend/app");
+  return app;
+}
+
+function deploymentErrorMessage(error) {
+  const message = String(error?.message || "");
+  if (/default credentials|service account|GOOGLE_SERVICE_ACCOUNT_JSON/i.test(message)) {
+    return "بيانات ربط Google Sheets غير مكتملة في إعدادات Vercel.";
+  }
+  return "تعذر بدء خدمة البيانات. راجعي سجلات Vercel وإعدادات البيئة.";
+}
 
 module.exports = (req, res) => {
-  const requestUrl = new URL(req.url, "http://localhost");
-  const routedPath = requestUrl.searchParams.get("__vercel_path");
+  try {
+    const requestUrl = new URL(req.url, "http://localhost");
+    const routedPath = requestUrl.searchParams.get("__vercel_path");
 
-  if (routedPath !== null) {
-    requestUrl.searchParams.delete("__vercel_path");
-    const query = requestUrl.searchParams.toString();
-    req.url = `/api/${routedPath}${query ? `?${query}` : ""}`;
+    if (routedPath !== null) {
+      requestUrl.searchParams.delete("__vercel_path");
+      const query = requestUrl.searchParams.toString();
+      req.url = `/api/${routedPath}${query ? `?${query}` : ""}`;
+    }
+
+    return loadApp()(req, res);
+  } catch (error) {
+    console.error("API startup error:", error);
+    return res.status(500).json({
+      success: false,
+      message: deploymentErrorMessage(error),
+    });
   }
-
-  return app(req, res);
 };

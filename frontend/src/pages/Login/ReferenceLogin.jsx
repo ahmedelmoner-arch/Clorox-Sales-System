@@ -46,7 +46,10 @@ export default function ReferenceLogin() {
       login(data.user, data.token);
       navigate(roleHome(data.user.role), { replace: true });
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "تعذر تسجيل الدخول. راجع الأكواد وحاول مرة أخرى.");
+      const message = requestError.response?.data?.message;
+      if (message) setError(message);
+      else if (requestError.code === "ECONNABORTED") setError("استغرق الاتصال بالخادم وقتًا أطول من المتوقع. حاولي مرة أخرى.");
+      else setError("تعذر الاتصال بالخادم. راجعي رابط المشروع وحاولي مرة أخرى.");
     } finally {
       setLoading(false);
     }
