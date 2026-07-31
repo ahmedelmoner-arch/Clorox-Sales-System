@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, MenuItem, Snackbar, Stack, TextField, Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, IconButton, MenuItem, Snackbar, Stack, TextField, Typography } from "@mui/material";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import { useSearchParams } from "react-router-dom";
 import AppShell from "../../components/layout/AppShell";
 import MobileScreenHeader from "../../components/layout/MobileScreenHeader";
 import { getVisitInit } from "../../services/visit.service";
 import { getReport, saveReport, updateReport } from "../../services/report.service";
+import { saveShortages } from "../../services/shortage.service";
 import { useSession } from "../../context/SessionContext";
 import { getCairoDate } from "../../utils/date";
 
 const typeLabels = { Sales: "مبيعات", Vouchers: "فاوتشر", Vacation: "إجازة" };
+const shortageTypeLabels = { OutOfStock: "غير موجود", LowStock: "كمية غير كافية", NotDisplayed: "غير معروض" };
 const number = (value) => Number(value || 0).toLocaleString("ar-EG");
 const isEnteredNonNegativeInteger = (value) => {
   const text = String(value ?? "").trim();
@@ -33,6 +38,8 @@ export default function NewVisitPage() {
   const isEditing = Boolean(editReportId);
   const [init, setInit] = useState(null);
   const [entries, setEntries] = useState({});
+  const [shortages, setShortages] = useState({});
+  const [selectedShortageProduct, setSelectedShortageProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingLoad, setEditingLoad] = useState(isEditing);
   const [editingReports, setEditingReports] = useState([]);
@@ -82,6 +89,8 @@ export default function NewVisitPage() {
     setLoading(true);
     setInit(null);
     setEntries({});
+    setShortages({});
+    setSelectedShortageProduct(null);
 
     getVisitInit(form.date, form.branch)
       .then((data) => { if (!cancelled) setInit(data); })
@@ -134,6 +143,10 @@ export default function NewVisitPage() {
   const actualPieces = Object.values(entries).reduce((total, item) => total + Number(item.actualPieces || 0), 0);
   const totalSalesValue = Object.values(entries).reduce((total, item) => total + Number(item.actualPieces || 0) * Number(item.unitPrice || 0), 0);
   const selectedProductsWithoutPrice = Object.values(entries).filter((item) => Number(item.actualPieces || 0) > 0 && !item.unitPriceConfigured);
+  const saleProducts = Object.values(entries).filter((item) => Number(item.actualPieces) > 0);
+  const shortageEntries = Object.values(shortages);
+  const hasSales = saleProducts.length > 0;
+  const hasShortages = shortageEntries.length > 0;
   const progress = targetPieces ? Math.round((actualPieces / targetPieces) * 100) : 0;
 
   function updateForm(field, value) { setForm((current) => ({ ...current, [field]: value })); }
@@ -144,11 +157,41 @@ export default function NewVisitPage() {
       // Vacation reports are not tied to a branch. Clear any hidden selection.
       ...(reportType === "Vacation" ? { branch: null, targetConsumers: "" } : {}),
     }));
+    if (reportType === "Vacation") {
+      setShortages({});
+      setSelectedShortageProduct(null);
+    }
   }
   function updateEntry(product, actualPieces) {
     const targetPieces = Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0);
     const unitPrice = Number(product.UnitPrice || 0);
     setEntries((current) => ({ ...current, [product.ProductID]: { productId: product.ProductID, productName: product.ProductName, targetPieces, unitPrice, unitPriceConfigured: product.unitPriceConfigured, actualPieces } }));
+  }
+  function addShortage(product) {
+    if (!product) return;
+    const productId = String(product.ProductID || "");
+    if (!productId) return;
+    setShortages((current) => ({
+      ...current,
+      [productId]: {
+        productId,
+        productName: product.ProductName || productId,
+        shortageType: "OutOfStock",
+        estimatedDemand: "",
+        notes: "",
+      },
+    }));
+    setSelectedShortageProduct(null);
+  }
+  function updateShortage(productId, field, value) {
+    setShortages((current) => ({ ...current, [productId]: { ...current[productId], [field]: value } }));
+  }
+  function removeShortage(productId) {
+    setShortages((current) => {
+      const next = { ...current };
+      delete next[productId];
+      return next;
+    });
   }
 
   async function submit(event) {
@@ -157,34 +200,60 @@ export default function NewVisitPage() {
     if (!form.supervisor) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم المشرف أولًا." });
     if (!isVacation && !form.branch) return setFeedback({ open: true, severity: "warning", message: "اختاري اسم الفرع أولًا." });
     if (isVacation && !form.vacationType) return setFeedback({ open: true, severity: "warning", message: "اختاري نوع الإجازة أولًا." });
-    if (!isVacation && !isEnteredNonNegativeInteger(form.positiveConsumers)) {
+    if (!isVacation && hasSales && !isEnteredNonNegativeInteger(form.positiveConsumers)) {
       return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد العملاء الإيجابيين برقم صحيح." });
     }
-    if (!isVacation && !isEnteredNonNegativeInteger(form.negativeConsumers)) {
+    if (!isVacation && hasSales && !isEnteredNonNegativeInteger(form.negativeConsumers)) {
       return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد العملاء السلبيين برقم صحيح." });
     }
-    if (isVoucher && !isEnteredNonNegativeInteger(form.vouchers)) {
+    if (isVoucher && hasSales && !isEnteredNonNegativeInteger(form.vouchers)) {
       return setFeedback({ open: true, severity: "warning", message: "أدخلي عدد الفواتشر برقم صحيح." });
     }
-    if (selectedProductsWithoutPrice.length) {
+    if (hasSales && selectedProductsWithoutPrice.length) {
       return setFeedback({ open: true, severity: "warning", message: "أضيفي السعر الشهري للمنتجات المختارة في تبويب UnitPrice قبل حفظ التقرير." });
     }
+    if (!isVacation && !hasSales && !hasShortages) {
+      return setFeedback({ open: true, severity: "warning", message: "سجلي مبيعات أو منتجًا ناقصًا واحدًا على الأقل قبل الحفظ." });
+    }
+    let savedReport = null;
     try {
       setSaving(true);
-      const products = Object.values(entries).filter((item) => Number(item.actualPieces) > 0);
+      const products = saleProducts;
       const reportPayload = { date: form.date, reportType: form.reportType, branchId: isVacation ? "" : form.branch?.code, branchName: isVacation ? "" : form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products };
-      const savedReport = isEditing ? await updateReport(editReportId, reportPayload) : await saveReport(reportPayload);
+      if (isVacation || hasSales) savedReport = isEditing ? await updateReport(editReportId, reportPayload) : await saveReport(reportPayload);
+      const savedShortages = !isEditing && hasShortages
+        ? await saveShortages({
+          date: form.date,
+          branchId: form.branch?.code,
+          branchName: form.branch?.name,
+          supervisorId: form.supervisor?.id,
+          reportId: savedReport?.reportId || "",
+          shortages: shortageEntries,
+        })
+        : null;
       if (isEditing) {
         setEditingReports(savedReport?.records || editingReports);
       } else {
         setEntries({});
+        setShortages({});
+        setSelectedShortageProduct(null);
         setForm((current) => ({ ...current, branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" }));
       }
-      const savedRows = savedReport?.sheetUpdate?.updatedRows || products.length || 1;
-      const savedRange = savedReport?.sheetUpdate?.updatedRange;
-      setFeedback({ open: true, severity: "success", message: `تم الحفظ في تبويب Reports على Google Sheets (${savedRows} صف${savedRows === 1 ? "" : "وف"})${savedRange ? ` — ${savedRange}` : ""}.` });
+      const confirmations = [];
+      if (savedReport) {
+        const savedRows = savedReport.sheetUpdate?.updatedRows || products.length || 1;
+        const savedRange = savedReport.sheetUpdate?.updatedRange;
+        confirmations.push(`تم حفظ التقرير في Reports (${savedRows} صف${savedRows === 1 ? "" : "وف"})${savedRange ? ` — ${savedRange}` : ""}`);
+      }
+      if (savedShortages) {
+        const savedRows = savedShortages.sheetUpdate?.updatedRows || shortageEntries.length;
+        const savedRange = savedShortages.sheetUpdate?.updatedRange;
+        confirmations.push(`تم حفظ النواقص في ProductShortages (${savedRows} صف${savedRows === 1 ? "" : "وف"})${savedRange ? ` — ${savedRange}` : ""}`);
+      }
+      setFeedback({ open: true, severity: "success", message: `${confirmations.join(". ")}.` });
     } catch (error) {
-      setFeedback({ open: true, severity: "error", message: error.response?.data?.message || "تعذر حفظ التقرير. حاولي مرة أخرى." });
+      const prefix = savedReport ? "تم حفظ التقرير في Reports، لكن " : "";
+      setFeedback({ open: true, severity: "error", message: `${prefix}${error.response?.data?.message || "تعذر حفظ البيانات. حاولي مرة أخرى."}` });
     } finally { setSaving(false); }
   }
 
@@ -196,7 +265,7 @@ export default function NewVisitPage() {
     <AppShell hideHeader>
       <MobileScreenHeader title="تسجيل تقرير" subtitle="أضيفي بيانات الزيارة أو المبيعات" />
       {isEditing && <Alert severity="info" sx={{ mb: 2 }}>أنتِ الآن تعدّلين التقرير نفسه. سيُسجَّل نوع التعديل ووقته في Google Sheets.</Alert>}
-      <SalesValuePreview visible={!isVacation && Boolean(form.reportType)} value={totalSalesValue} pieces={actualPieces} month={init?.unitPriceMonth} missingPriceCount={selectedProductsWithoutPrice.length} />
+      <SalesValuePreview visible={!isVacation && Boolean(form.reportType) && hasSales} value={totalSalesValue} pieces={actualPieces} month={init?.unitPriceMonth} missingPriceCount={selectedProductsWithoutPrice.length} />
       <Box component="form" onSubmit={submit}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1} sx={{ mb: 2.5 }}>
           <Box><Typography variant="h5" fontWeight={900}>إضافة تقرير جديد</Typography><Typography color="text.secondary">أدخلي البيانات ثم احفظيها مباشرة في ملف التقارير.</Typography></Box>
@@ -220,6 +289,26 @@ export default function NewVisitPage() {
         {!isVacation && form.branch && <Card elevation={0} sx={{ borderRadius: 3.5, mb: 2, boxShadow: "0 8px 20px rgba(24,42,78,.14)" }}><CardContent sx={{ py: 2 }}>
           <Typography textAlign="center" fontWeight={900}>اسم الفرع</Typography><Typography textAlign="center" color="primary.main" fontWeight={800} sx={{ mt: .25 }}>{form.branch.name}</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", textAlign: "center", mt: 1.8 }}><Box><Typography variant="body2">🎯 الهدف</Typography><Typography fontSize={21} fontWeight={900}>{number(targetPieces)}</Typography></Box><Box sx={{ borderInline: "1px solid #e5e9f1" }}><Typography variant="body2">✅ المحقق</Typography><Typography fontSize={21} fontWeight={900} color="#109553">{number(actualPieces)}</Typography></Box><Box><Typography variant="body2">📈 الإنجاز</Typography><Typography fontSize={21} fontWeight={900} color="primary.main">{progress}%</Typography></Box></Box>
+        </CardContent></Card>}
+
+        {!isEditing && !isVacation && form.branch && <Card elevation={0} sx={{ border: "1px solid #f2d9b1", borderRadius: 4, mb: 2, bgcolor: "#fffdf8" }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "center" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1} alignItems="center"><Box sx={{ width: 38, height: 38, display: "grid", placeItems: "center", borderRadius: 2, color: "#b45309", bgcolor: "#fff0d4" }}><ReportProblemOutlinedIcon /></Box><Box><Typography fontWeight={900}>نواقص المنتجات</Typography><Typography variant="caption" color="text.secondary">اختياري — يُحفظ في سجل مستقل ولا يغيّر المبيعات.</Typography></Box></Stack>
+            <Chip size="small" color={hasShortages ? "warning" : "default"} label={hasShortages ? `${number(shortageEntries.length)} نقص مسجل` : "لا توجد نواقص"} />
+          </Stack>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ sm: "flex-start" }}>
+            <Autocomplete fullWidth size="small" options={(init?.products || []).filter((product) => !shortages[String(product.ProductID)])} value={selectedShortageProduct} onChange={(_, value) => setSelectedShortageProduct(value)} getOptionLabel={(option) => option.ProductName || ""} isOptionEqualToValue={(option, value) => String(option.ProductID) === String(value.ProductID)} renderInput={(params) => <TextField {...params} label="المنتج الناقص" placeholder="ابحثي باسم المنتج" />} />
+            <Button type="button" variant="outlined" color="warning" onClick={() => addShortage(selectedShortageProduct)} disabled={!selectedShortageProduct} startIcon={<AddRoundedIcon />} sx={{ minWidth: { sm: 142 }, whiteSpace: "nowrap" }}>إضافة نقص</Button>
+          </Stack>
+          {hasShortages && <Stack spacing={1.2} sx={{ mt: 2 }}>{shortageEntries.map((shortage) => <Box key={shortage.productId} sx={{ p: 1.35, border: "1px solid #f0dfc5", borderRadius: 2.5, bgcolor: "background.paper" }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1.15 }}><Typography fontWeight={900} noWrap>{shortage.productName}</Typography><IconButton type="button" size="small" color="error" aria-label={`حذف نقص ${shortage.productName}`} onClick={() => removeShortage(shortage.productId)}><CloseRoundedIcon fontSize="small" /></IconButton></Stack>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "minmax(190px, 1fr) 150px" }, gap: 1.1 }}>
+              <TextField select size="small" label="حالة النقص" value={shortage.shortageType} onChange={(event) => updateShortage(shortage.productId, "shortageType", event.target.value)}>{Object.entries(shortageTypeLabels).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</TextField>
+              <TextField size="small" type="number" label="الطلب المتوقع (اختياري)" value={shortage.estimatedDemand} onChange={(event) => updateShortage(shortage.productId, "estimatedDemand", event.target.value)} inputProps={{ min: 0, step: 1 }} />
+              <TextField size="small" label="ملاحظة (اختياري)" value={shortage.notes} onChange={(event) => updateShortage(shortage.productId, "notes", event.target.value)} sx={{ gridColumn: { sm: "1 / -1" } }} />
+            </Box>
+          </Box>)}</Stack>}
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.25 }}>يمكنك حفظ النواقص حتى لو لم تسجلي مبيعات في هذه الزيارة.</Typography>
         </CardContent></Card>}
 
         {!!form.reportType && !isVacation && <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
@@ -265,14 +354,14 @@ export default function NewVisitPage() {
         {!!form.reportType && !isVacation && <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography fontWeight={900} sx={{ mb: 2 }}>بيانات العملاء {isVoucher ? "والفاوتشر" : ""}</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 2 }}>
-            <TextField required type="number" label="عملاء إيجابيون" value={form.positiveConsumers} onChange={(event) => updateForm("positiveConsumers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود عملاء" />
-            <TextField required type="number" label="عملاء سلبيون" value={form.negativeConsumers} onChange={(event) => updateForm("negativeConsumers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود عملاء" />
+            <TextField required={hasSales} type="number" label="عملاء إيجابيون" value={form.positiveConsumers} onChange={(event) => updateForm("positiveConsumers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود عملاء" />
+            <TextField required={hasSales} type="number" label="عملاء سلبيون" value={form.negativeConsumers} onChange={(event) => updateForm("negativeConsumers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود عملاء" />
             <TextField type="number" label="إجمالي العملاء" value={Number(form.positiveConsumers || 0) + Number(form.negativeConsumers || 0)} InputProps={{ readOnly: true }} />
             <TextField type="number" label="هدف العملاء اليومي" value={init?.targetConsumers ?? 0} InputProps={{ readOnly: true }} helperText="يتم جلبه تلقائيًا من الهدف" />
-            {isVoucher && <TextField required type="number" label="عدد الفاوتشر" value={form.vouchers} onChange={(event) => updateForm("vouchers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود فواتشر" />}
+            {isVoucher && <TextField required={hasSales} type="number" label="عدد الفاوتشر" value={form.vouchers} onChange={(event) => updateForm("vouchers", event.target.value)} inputProps={{ min: 0, step: 1 }} helperText="أدخلي ٠ عند عدم وجود فواتشر" />}
           </Box>
         </CardContent></Card>}
-        <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}><TextField fullWidth multiline minRows={3} label="ملاحظة" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} placeholder="أي ملاحظة تودين إضافتها للتقرير" /><Button type="submit" disabled={saving} variant="contained" size="large" endIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveRoundedIcon />} sx={{ mt: 2.5, minWidth: 180, py: 1.25 }}>{saving ? "جارٍ الحفظ..." : "حفظ التقرير"}</Button></CardContent></Card>
+        <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}><TextField fullWidth multiline minRows={3} label="ملاحظة" value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} placeholder="أي ملاحظة تودين إضافتها للتقرير" /><Button type="submit" disabled={saving} variant="contained" size="large" endIcon={saving ? <CircularProgress size={18} color="inherit" /> : hasShortages && !hasSales ? <ReportProblemOutlinedIcon /> : <SaveRoundedIcon />} sx={{ mt: 2.5, minWidth: 180, py: 1.25 }}>{saving ? "جارٍ الحفظ..." : hasShortages && !hasSales ? "حفظ النواقص" : hasShortages ? "حفظ التقرير والنواقص" : "حفظ التقرير"}</Button></CardContent></Card>
       </Box>
       <Snackbar open={feedback.open} autoHideDuration={5000} onClose={() => setFeedback((current) => ({ ...current, open: false }))}><Alert severity={feedback.severity} variant="filled" onClose={() => setFeedback((current) => ({ ...current, open: false }))}>{feedback.message}</Alert></Snackbar>
     </AppShell>

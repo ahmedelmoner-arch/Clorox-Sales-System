@@ -2,6 +2,7 @@ const { currentDate, getSheetRows, toDate, toMonth, toNumber } = require("./shee
 const { getReportsForDelegate, getTargetSummaryForDate, makeSummary } = require("./report.service");
 const { getAnnualVacationDays, getVacationSummary } = require("./vacation.service");
 const { createProductOrder } = require("../utils/product-order");
+const { getShortageAnalytics } = require("./shortage.service");
 
 function matchesDelegate(row, delegateId) {
   return String(row.DelegateID || "").trim() === String(delegateId || "").trim();
@@ -278,12 +279,13 @@ async function getDashboardData(user, { month } = {}) {
   const selectedMonth = toMonth(month) || toMonth(date);
   const delegateId = user.delegateId || user.id;
 
-  const [{ reports: monthReports }, { reports: allReports }, targetSheet, productSheet, vacationSheet] = await Promise.all([
+  const [{ reports: monthReports }, { reports: allReports }, targetSheet, productSheet, vacationSheet, shortages] = await Promise.all([
     getReportsForDelegate(user, { month: selectedMonth }),
     getReportsForDelegate(user, { all: true }),
     getSheetRows("Targets"),
     getSheetRows("Products"),
     getSheetRows("VacationDelegate"),
+    getShortageAnalytics(user, { month: selectedMonth }),
   ]);
 
   const reports = monthReports.filter((report) => toDate(report.Date) === date);
@@ -316,6 +318,7 @@ async function getDashboardData(user, { month } = {}) {
       customerDays,
       products: productPerformance,
       productDays,
+      shortages,
     },
     today: {
       reports: reportSummary.count,

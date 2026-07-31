@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Box, Card, CardContent, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, IconButton, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, IconButton, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
@@ -13,10 +13,12 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AppShell from "../../components/layout/AppShell";
 import { useSession } from "../../context/SessionContext";
 import { getDelegateDrilldown, getOversight } from "../../services/oversight.service";
+import { updateShortageStatus } from "../../services/shortage.service";
 import { normalizeRole, roleLabel } from "../../utils/roles";
 import { getCairoDate } from "../../utils/date";
 
@@ -78,6 +80,13 @@ function CategoryTable({ categories, detailed = false }) {
   return <Box sx={{ overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5 }}><Box sx={{ minWidth: 580 }}><Box sx={{ display: "grid", gridTemplateColumns: columns, px: 1.3, py: 1, bgcolor: "#f5f8fc" }}><Typography variant="caption" fontWeight={800}>الكاتيجوري / المنتج</Typography><Typography variant="caption" textAlign="center" fontWeight={800}>المحقق</Typography><Typography variant="caption" textAlign="center" fontWeight={800}>الهدف</Typography><Typography variant="caption" textAlign="center" fontWeight={800}>قيمة المبيعات</Typography><Typography variant="caption" textAlign="center" fontWeight={800}>الإنجاز</Typography></Box>{categories.length ? categories.map((category) => <Box key={category.category}><Box sx={{ display: "grid", gridTemplateColumns: columns, px: 1.3, py: 1.1, borderTop: "1px solid #d7ebe7", bgcolor: "#eff9f7" }}><Typography fontWeight={900} color="#0f766e">{category.category}</Typography><Typography textAlign="center" color="#16825a" fontWeight={800}>{number(category.actualPieces)}</Typography><Typography textAlign="center">{number(category.targetPieces)}</Typography><Typography textAlign="center" color={VALUE} fontWeight={900}>{money(category.salesValue)}</Typography><Typography textAlign="center" color="#0f766e" fontWeight={900}>{percent(category.actualPieces, category.targetPieces)}</Typography></Box>{detailed && (category.products || []).map((product) => <Box key={product.productId} sx={{ display: "grid", gridTemplateColumns: columns, px: 1.3, py: 1.05, borderTop: "1px solid #edf1f6" }}><Typography fontWeight={700} sx={{ pr: 1.5, position: "relative", "&::before": { content: '""', position: "absolute", right: 0, top: "50%", width: 6, height: 6, borderRadius: "50%", bgcolor: "#94a3b8", transform: "translateY(-50%)" } }}>{product.productName}</Typography><Typography textAlign="center" color="#16825a" fontWeight={700}>{number(product.actualPieces)}</Typography><Typography textAlign="center">{number(product.targetPieces)}</Typography><Typography textAlign="center" color={VALUE} fontWeight={900}>{money(product.salesValue)}</Typography><Typography textAlign="center" color="#2563eb" fontWeight={900}>{percent(product.actualPieces, product.targetPieces)}</Typography></Box>)}</Box>) : <Typography sx={{ p: 3, textAlign: "center" }} color="text.secondary">لا توجد أهداف أو منتجات لهذا الشهر.</Typography>}</Box></Box>;
 }
 
+function ShortageFollowUp({ details, onResolve, resolvingId }) {
+  const typeLabels = { OutOfStock: "غير موجود", LowStock: "كمية غير كافية", NotDisplayed: "غير معروض" };
+  const rows = details.filter((row) => row.Status !== "Resolved").slice(0, 8);
+  if (!rows.length) return null;
+  return <Box sx={{ mt: 3 }}><Stack direction="row" alignItems="center" spacing={.8} sx={{ mb: 1.1 }}><ReportProblemOutlinedIcon sx={{ color: "#d97706" }} /><Box><Typography fontWeight={900}>متابعة النواقص المفتوحة</Typography><Typography variant="caption" color="text.secondary">أحدث الحالات في نطاق فريقك</Typography></Box></Stack><Box sx={{ border: "1px solid #f0dfc5", borderRadius: 2.5, overflow: "hidden" }}><Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(150px, 1fr) 92px", sm: "minmax(180px, 1fr) minmax(140px, 1fr) 112px" }, px: 1.3, py: 1, bgcolor: "#fff8ed", gap: 1 }}><Typography variant="caption" fontWeight={900}>المنتج والفرع</Typography><Typography variant="caption" fontWeight={900} sx={{ display: { xs: "none", sm: "block" } }}>حالة النقص</Typography><Typography variant="caption" textAlign="center" fontWeight={900}>إجراء</Typography></Box>{rows.map((row) => <Box key={row.ShortageID} sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(150px, 1fr) 92px", sm: "minmax(180px, 1fr) minmax(140px, 1fr) 112px" }, px: 1.3, py: 1.1, gap: 1, alignItems: "center", borderTop: "1px solid #f6ead9" }}><Box minWidth={0}><Typography fontWeight={800} noWrap>{row.ProductName || row.ProductID}</Typography><Typography variant="caption" color="text.secondary" noWrap>{row.BranchName || row.BranchID || "غير محدد"}</Typography></Box><Typography variant="body2" sx={{ display: { xs: "none", sm: "block" } }}>{typeLabels[row.ShortageType] || row.ShortageType}</Typography><Button size="small" color="success" variant="outlined" disabled={resolvingId === row.ShortageID} onClick={() => onResolve(row.ShortageID)}>{resolvingId === row.ShortageID ? "جارٍ الحفظ" : "تم الحل"}</Button></Box>)}</Box></Box>;
+}
+
 function SummaryStrip({ summary }) {
   const item = (label, value, accent) => <Box key={label} sx={{ minWidth: 0, px: 1.15, py: .65, borderInlineStart: "1px solid #e4ebf3", "&:first-of-type": { borderInlineStart: "none" } }}><Typography variant="caption" color="text.secondary" display="block">{label}</Typography><Typography fontWeight={900} color={accent} noWrap>{value}</Typography></Box>;
   return <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, border: "1px solid #e0e9f0", borderRadius: 2.5, overflow: "hidden", bgcolor: "#fbfefe" }}>{item("القطع", `${number(summary.actualPieces)} / ${number(summary.targetPieces)}`, "#0f766e")}{item("إنجاز القطع", percent(summary.actualPieces, summary.targetPieces), "#0f766e")}{item("العملاء", `${number(summary.totalConsumers)} / ${number(summary.targetConsumers)}`, "#7c3aed")}{item("قيمة المبيعات", money(summary.salesValue), VALUE)}{item("الفواتشر", number(summary.vouchers), "#d97706")}{item("التقارير", number(summary.reports), "#2563eb")}</Box>;
@@ -128,6 +137,7 @@ export default function OversightPage() {
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [delegateError, setDelegateError] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
+  const [shortageUpdatingId, setShortageUpdatingId] = useState("");
   const role = normalizeRole(user?.role);
 
   useEffect(() => {
@@ -154,7 +164,21 @@ export default function OversightPage() {
     setDelegateError("");
   }
 
+  async function resolveShortage(shortageId) {
+    try {
+      setShortageUpdatingId(shortageId);
+      await updateShortageStatus(shortageId, "Resolved");
+      const refreshed = await getOversight(month);
+      setData(refreshed);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "تعذر تحديث حالة النقص.");
+    } finally {
+      setShortageUpdatingId("");
+    }
+  }
+
   const summary = data?.summary || {};
+  const shortages = data?.shortages || {};
   const heading = role === "Management" ? "لوحة الإدارة" : "لوحة المشرف";
   const teamLabel = role === "Management" ? "إجمالي فرق المبيعات" : "فريق المندوبات";
   const cards = useMemo(() => [
@@ -165,9 +189,10 @@ export default function OversightPage() {
     { title: "إنجاز العملاء", value: percent(summary.totalConsumers, summary.targetConsumers), hint: "حسب هدف الشهر", color: "#d97706", icon: <GroupsOutlinedIcon /> },
     { title: "الفواتشر", value: number(summary.vouchers), hint: "إجمالي الشهر", color: "#a855f7", icon: <ReceiptLongOutlinedIcon /> },
     { title: "التقارير", value: number(summary.reports), hint: `${number(data?.scope?.delegates)} مندوبة`, color: "#334155", icon: <DescriptionOutlinedIcon /> },
-  ], [data?.scope?.delegates, summary]);
+    { title: "نواقص مفتوحة", value: number(shortages.open), hint: `إجمالي ${number(shortages.total)} نقص`, color: "#d97706", icon: <ReportProblemOutlinedIcon /> },
+  ], [data?.scope?.delegates, shortages.open, shortages.total, summary]);
 
-  const overview = data && <><Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))" }, gap: 1.2 }}>{cards.map((card) => <MetricCard key={card.title} {...card} />)}</Box>{role === "Management" && <Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>أداء فرق المشرفين</Typography><PerformanceTable rows={data.supervisors || []} type="supervisor" /></Box>}<Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>{role === "Management" ? "أداء جميع المندوبات" : "أداء فريق المندوبات"}</Typography><PerformanceTable rows={data.delegates || []} type="delegate" onSelect={openDelegate} /></Box><Box sx={{ mt: 3, mb: 2 }}><Stack direction="row" alignItems="center" spacing={.8} sx={{ mb: 1.1 }}><Divider flexItem sx={{ flex: 1 }} /><Typography fontWeight={900}>أداء الكاتيجوري</Typography><Divider flexItem sx={{ flex: 1 }} /></Stack><CategoryTable categories={data.categories || []} /></Box></>;
+  const overview = data && <><Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))" }, gap: 1.2 }}>{cards.map((card) => <MetricCard key={card.title} {...card} />)}</Box>{shortages.products?.length > 0 && <Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>أعلى نواقص المنتجات</Typography><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", lg: "repeat(3, minmax(0, 1fr))" }, gap: 1.1 }}>{shortages.products.slice(0, 6).map((item) => <Card key={item.productId} elevation={0} sx={{ border: "1px solid #f2dfc1", borderRadius: 2.5, bgcolor: "#fffdf8" }}><CardContent sx={{ p: 1.35, "&:last-child": { pb: 1.35 } }}><Stack direction="row" justifyContent="space-between" spacing={1}><Box minWidth={0}><Typography fontWeight={900} noWrap>{item.productName}</Typography><Typography variant="caption" color="text.secondary" noWrap>{item.category || "منتجات أخرى"}</Typography></Box><Box textAlign="center"><Typography color="#d97706" fontWeight={900}>{number(item.open)}</Typography><Typography variant="caption" color="text.secondary">مفتوح</Typography></Box></Stack></CardContent></Card>)}</Box></Box>}<ShortageFollowUp details={shortages.details || []} onResolve={resolveShortage} resolvingId={shortageUpdatingId} />{role === "Management" && <Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>أداء فرق المشرفين</Typography><PerformanceTable rows={data.supervisors || []} type="supervisor" /></Box>}<Box sx={{ mt: 3 }}><Typography fontWeight={900} sx={{ mb: 1.1 }}>{role === "Management" ? "أداء جميع المندوبات" : "أداء فريق المندوبات"}</Typography><PerformanceTable rows={data.delegates || []} type="delegate" onSelect={openDelegate} /></Box><Box sx={{ mt: 3, mb: 2 }}><Stack direction="row" alignItems="center" spacing={.8} sx={{ mb: 1.1 }}><Divider flexItem sx={{ flex: 1 }} /><Typography fontWeight={900}>أداء الكاتيجوري</Typography><Divider flexItem sx={{ flex: 1 }} /></Stack><CategoryTable categories={data.categories || []} /></Box></>;
 
   return <AppShell hideNavigation><Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1.5} sx={{ mb: 2.25 }}><Stack direction="row" alignItems="center" spacing={1.15}><Box sx={{ width: 46, height: 46, display: "grid", placeItems: "center", borderRadius: 2.5, bgcolor: role === "Management" ? "#eef5ff" : "#e9f8f4", color: role === "Management" ? "#2563eb" : "#0f766e" }}>{role === "Management" ? <ManageAccountsRoundedIcon /> : <SupervisorAccountRoundedIcon />}</Box><Box><Typography variant="h5" fontWeight={900}>{heading}</Typography><Typography variant="body2" color="text.secondary">{user?.name || roleLabel(role)} · {teamLabel}</Typography></Box></Stack><TextField type="month" size="small" label="الشهر" value={month} onChange={(event) => setMonth(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: { xs: "100%", sm: 178 } }} /></Stack>{role === "Management" && <Box sx={{ borderBottom: "1px solid #dfe7f1", mb: 2.25 }}><Tabs value={view} onChange={(_, nextView) => setView(nextView)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ minHeight: 46, "& .MuiTab-root": { minHeight: 46, fontWeight: 900, px: 2 } }}><Tab value="overview" label="نظرة الإدارة" icon={<ManageAccountsRoundedIcon fontSize="small" />} iconPosition="start" /><Tab value="team-analysis" label="تحليل الفريق" icon={<InsightsRoundedIcon fontSize="small" />} iconPosition="start" /></Tabs></Box>}{error && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}{!data && !error && <Box sx={{ minHeight: 300, display: "grid", placeItems: "center" }}><CircularProgress /></Box>}{data && (role === "Management" && view === "team-analysis" ? <TeamAnalysisDashboard data={data} month={month} onSelectDelegate={openDelegate} /> : overview)}<DelegateDetailDialog delegate={selectedDelegate} data={delegateDetail} loading={delegateLoading} error={delegateError} onClose={closeDelegate} onOpenDay={setSelectedDay} /><DayDetailDialog day={selectedDay} onClose={() => setSelectedDay(null)} /></AppShell>;
 }

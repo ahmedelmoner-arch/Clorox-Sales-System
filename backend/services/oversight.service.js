@@ -3,6 +3,7 @@ const { canonicalRole } = require("../utils/roles");
 const { buildMonthlyAggregate, resolveReportsPricing } = require("./report.service");
 const { UNIT_PRICE_SHEET } = require("./unit-price.service");
 const { createProductOrder } = require("../utils/product-order");
+const { getShortageAnalyticsForDelegateIds } = require("./shortage.service");
 
 function text(value) {
   return String(value ?? "").trim();
@@ -291,6 +292,7 @@ async function getOversightData(user, { month } = {}) {
   )), productSheet.rows, unitPriceSheet.rows);
   const targets = targetSheet.rows.filter((target) => teamIds.has(text(target.DelegateID)) && rowMonth(target) === selectedMonth);
   const delegates = buildDelegateMetrics(team, reports, targets, supervisorAssignments).sort((left, right) => right.actualPieces - left.actualPieces || left.delegateName.localeCompare(right.delegateName, "ar"));
+  const shortages = await getShortageAnalyticsForDelegateIds(teamIds, { month: selectedMonth });
 
   return {
     month: selectedMonth,
@@ -304,6 +306,7 @@ async function getOversightData(user, { month } = {}) {
     delegates,
     categories: buildCategoryRows(reports, targets, productSheet.rows),
     teamDays: buildTeamDays(reports),
+    shortages,
   };
 }
 
@@ -331,6 +334,7 @@ async function getDelegateDrilldown(user, { delegateId, month } = {}) {
   const reports = resolveReportsPricing(reportSheet.rows.filter((report) => key(report.DelegateID) === key(delegate.DelegateID) && rowMonth(report) === selectedMonth), productSheet.rows, unitPriceSheet.rows);
   const targets = targetSheet.rows.filter((target) => key(target.DelegateID) === key(delegate.DelegateID) && rowMonth(target) === selectedMonth);
   const summary = buildMonthlyAggregate(reports, targets, productSheet.rows, delegate.DelegateID, selectedMonth);
+  const shortages = await getShortageAnalyticsForDelegateIds(new Set([delegate.DelegateID]), { month: selectedMonth });
   const days = [...new Set(reports.map((report) => toDate(report.Date)).filter(Boolean))]
     .sort((left, right) => right.localeCompare(left))
     .map((date) => {
@@ -347,6 +351,7 @@ async function getDelegateDrilldown(user, { delegateId, month } = {}) {
     },
     summary,
     days,
+    shortages,
   };
 }
 

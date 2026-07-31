@@ -72,6 +72,33 @@ async function getSheetRows(sheetName) {
   };
 }
 
+async function getSheetTitles() {
+  requireSpreadsheetId();
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+    fields: "sheets.properties.title",
+  });
+  return new Set((response.data.sheets || []).map((sheet) => sheet.properties?.title).filter(Boolean));
+}
+
+async function ensureSheetExists(sheetName) {
+  const titles = await getSheetTitles();
+  if (titles.has(sheetName)) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{ addSheet: { properties: { title: sheetName } } }],
+    },
+  });
+}
+
+async function getSheetRowsIfExists(sheetName) {
+  const titles = await getSheetTitles();
+  if (!titles.has(sheetName)) return { headers: [], rows: [], rowNumbers: [] };
+  return getSheetRows(sheetName);
+}
+
 async function appendSheetRows(sheetName, headers, records) {
   requireSpreadsheetId();
   if (!records.length) return;
@@ -119,6 +146,7 @@ async function updateSheetRow(sheetName, headers, rowNumber, record) {
 }
 
 async function ensureSheetHeaders(sheetName, requiredHeaders) {
+  await ensureSheetExists(sheetName);
   const { headers } = await getSheetRows(sheetName);
   const additions = requiredHeaders.filter((header) => !headers.includes(header));
   if (!additions.length) return headers;
@@ -183,4 +211,15 @@ function currentMonth() {
   return currentDate().slice(0, 7);
 }
 
-module.exports = { appendSheetRows, currentDate, currentMonth, ensureSheetHeaders, getSheetRows, toDate, toMonth, toNumber, updateSheetRow };
+module.exports = {
+  appendSheetRows,
+  currentDate,
+  currentMonth,
+  ensureSheetHeaders,
+  getSheetRows,
+  getSheetRowsIfExists,
+  toDate,
+  toMonth,
+  toNumber,
+  updateSheetRow,
+};
