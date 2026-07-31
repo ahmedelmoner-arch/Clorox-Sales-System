@@ -7,6 +7,7 @@ backend/config/service-account.json
 # Dependencies and generated artifacts
 node_modules/
 frontend/dist/
+public/
 coverage/
 *.log
 .vercel/
