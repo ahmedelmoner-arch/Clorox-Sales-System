@@ -282,6 +282,7 @@ async function getDashboardData(user, { month } = {}) {
   const productPerformance = buildProductPerformance(monthReports, targetSheet.rows, productSheet.rows, delegateId, selectedMonth);
   const productDays = buildProductDays(monthReports, targetSheet.rows, productSheet.rows, delegateId, selectedMonth);
   const reportSummary = makeSummary(reports);
+  const reportsSummary = makeSummary(monthReports);
   const targets = await getTargetSummaryForDate(user, date);
   const summary = {
     ...reportSummary,
@@ -293,6 +294,7 @@ async function getDashboardData(user, { month } = {}) {
   return {
     date,
     summary,
+    reportsSummary,
     cumulative: buildCumulativeDetails(allReports, targetSheet.rows, productSheet.rows, delegateId),
     vacation: {
       ...getVacationSummary(vacationSheet.rows, delegateId, allReports),
