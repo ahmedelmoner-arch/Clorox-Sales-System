@@ -3,7 +3,7 @@ import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import AssessmentRoundedIcon from "@mui/icons-material/AssessmentRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
-import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
+import SpaceDashboardRoundedIcon from "@mui/icons-material/SpaceDashboardRounded";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../../styles/reference.css";
 
@@ -12,7 +12,7 @@ const items = [
   { label: "تقاريري", path: "/reports", icon: <AssessmentRoundedIcon /> },
   { label: "إضافة", path: "/visit", icon: <AddRoundedIcon />, primary: true },
   { label: "حسابي", path: "/profile", icon: <PersonRoundedIcon /> },
-  { label: "رسوم بيانية", path: "/charts", icon: <BarChartRoundedIcon /> },
+  { label: "داشبورد", path: "/charts", icon: <SpaceDashboardRoundedIcon /> },
 ];
 
 export default function ReferenceNavigation() {

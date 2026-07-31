@@ -177,6 +177,49 @@ function buildProductDays(reports, targets, products, delegateId, month) {
   return [...byProductDay.values()].sort((left, right) => left.date.localeCompare(right.date) || productOrder.compareProducts(left, right));
 }
 
+function buildAnalyticsOverview(reports, productPerformance, customerDays) {
+  const summary = makeSummary(reports);
+  const targetPieces = productPerformance.reduce((total, product) => total + product.target, 0);
+  const targetConsumers = customerDays.reduce((total, day) => total + day.target, 0);
+  const reportDays = new Set();
+  const reportIds = new Set();
+
+  reports.forEach((report) => {
+    const id = reportId(report);
+    if (reportIds.has(id)) return;
+    reportIds.add(id);
+    const date = toDate(report.Date);
+    if (date) reportDays.add(date);
+  });
+
+  const categories = new Map();
+  productPerformance.forEach((product) => {
+    const category = product.category || "منتجات أخرى";
+    const current = categories.get(category) || { category, actual: 0, target: 0 };
+    current.actual += product.actual;
+    current.target += product.target;
+    categories.set(category, current);
+  });
+
+  return {
+    actualPieces: summary.actualPieces,
+    targetPieces,
+    piecesAchievement: targetPieces ? Math.round((summary.actualPieces / targetPieces) * 100) : 0,
+    totalConsumers: summary.totalConsumers,
+    targetConsumers,
+    consumersAchievement: targetConsumers ? Math.round((summary.totalConsumers / targetConsumers) * 100) : 0,
+    positiveConsumers: summary.positiveConsumers,
+    negativeConsumers: summary.negativeConsumers,
+    vouchers: summary.vouchers,
+    reports: summary.count,
+    activeDays: reportDays.size,
+    categories: [...categories.values()].map((category) => ({
+      ...category,
+      achievement: category.target ? Math.round((category.actual / category.target) * 100) : 0,
+    })),
+  };
+}
+
 function buildDailyProductDetails(reports, products) {
   const catalog = new Map(products.map((product) => [String(product.ProductID || "").trim(), product]));
   const productOrder = createProductOrder(products);
@@ -235,6 +278,9 @@ async function getDashboardData(user, { month } = {}) {
 
   const reports = monthReports.filter((report) => toDate(report.Date) === date);
   const vacationDays = getAnnualVacationDays(allReports, delegateId);
+  const customerDays = buildCustomerDays(monthReports, targetSheet.rows, delegateId, selectedMonth);
+  const productPerformance = buildProductPerformance(monthReports, targetSheet.rows, productSheet.rows, delegateId, selectedMonth);
+  const productDays = buildProductDays(monthReports, targetSheet.rows, productSheet.rows, delegateId, selectedMonth);
   const reportSummary = makeSummary(reports);
   const targets = await getTargetSummaryForDate(user, date);
   const summary = {
@@ -254,9 +300,10 @@ async function getDashboardData(user, { month } = {}) {
     },
     charts: {
       month: selectedMonth,
-      customerDays: buildCustomerDays(monthReports, targetSheet.rows, delegateId, selectedMonth),
-      products: buildProductPerformance(monthReports, targetSheet.rows, productSheet.rows, delegateId, selectedMonth),
-      productDays: buildProductDays(monthReports, targetSheet.rows, productSheet.rows, delegateId, selectedMonth),
+      overview: buildAnalyticsOverview(monthReports, productPerformance, customerDays),
+      customerDays,
+      products: productPerformance,
+      productDays,
     },
     today: {
       reports: reportSummary.count,
