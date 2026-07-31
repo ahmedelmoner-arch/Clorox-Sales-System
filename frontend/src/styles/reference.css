@@ -1,34 +1,213 @@
 .clorox-login {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  min-height: 100svh;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 76px 20px 52px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 8% 13%, rgba(255,255,255,.58) 0 2px, transparent 2.5px) 0 0 / 17px 17px,
-    radial-gradient(ellipse at 50% 24%, rgba(213,237,255,.75), transparent 46%),
-    linear-gradient(148deg, #eaf6ff 0%, #a7d3ff 32%, #1674e7 73%, #003d9a 100%);
+    radial-gradient(ellipse at 54% -16%, rgba(200,241,255,.72), transparent 41%),
+    radial-gradient(circle at 0 47%, rgba(0,102,240,.65), transparent 29%),
+    linear-gradient(135deg, #0075f8 0%, #2691fa 41%, #44abef 100%);
 }
 
 .clorox-login::before,
 .clorox-login::after {
   content: "";
-  position: fixed;
-  inset: auto -14% -22% -14%;
-  height: 62vh;
+  position: absolute;
+  z-index: -1;
   pointer-events: none;
-  border-radius: 50% 50% 0 0 / 25% 25% 0 0;
-  border: 66px solid rgba(105, 184, 255, .28);
-  transform: rotate(-5deg);
+}
+
+.clorox-login::before {
+  width: 680px;
+  height: 680px;
+  top: -430px;
+  right: -90px;
+  border-radius: 50%;
+  border: 72px solid rgba(207,244,255,.3);
 }
 
 .clorox-login::after {
-  inset: auto -20% -28% -20%;
-  border-color: rgba(0, 84, 207, .48);
-  transform: rotate(8deg);
+  width: 760px;
+  height: 390px;
+  right: -270px;
+  bottom: -250px;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 72px solid rgba(0,82,211,.38);
+  transform: rotate(7deg);
 }
 
-.clorox-login-card { position: relative; z-index: 1; }
+.clorox-login-dot-grid {
+  position: absolute;
+  z-index: -1;
+  top: 38px;
+  right: 5%;
+  width: min(28vw, 230px);
+  height: 150px;
+  opacity: .42;
+  background-image: radial-gradient(rgba(255,255,255,.95) 2.2px, transparent 2.5px);
+  background-size: 26px 26px;
+}
+
+.clorox-login-glow {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.clorox-login-glow-top {
+  width: 380px;
+  height: 380px;
+  top: 175px;
+  left: -265px;
+  border: 56px solid rgba(61,154,255,.32);
+}
+
+.clorox-login-glow-bottom {
+  width: 470px;
+  height: 470px;
+  bottom: -355px;
+  left: -50px;
+  border: 62px solid rgba(110,188,255,.22);
+}
+
+.clorox-login-theme-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 28px;
+  left: 30px;
+  padding: 2px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 8px 16px rgba(0,56,136,.2);
+}
+
+.clorox-login-theme-toggle button {
+  width: 54px;
+  height: 54px;
+  color: #172b56;
+  background: transparent;
+  border: 0;
+}
+
+.clorox-login-theme-toggle button:hover { background: rgba(236,244,255,.92); }
+
+.clorox-login-card {
+  position: relative;
+  z-index: 1;
+  border: 1px solid;
+  box-shadow: 0 28px 64px rgba(0,55,144,.24);
+  backdrop-filter: blur(14px);
+}
+
+.clorox-login-logo {
+  width: clamp(145px, 25vw, 205px);
+  max-height: 126px;
+  object-fit: contain;
+}
+
+.clorox-login-title {
+  font-size: clamp(30px, 4.1vw, 47px);
+  font-weight: 900;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.clorox-login-subtitle {
+  font-size: clamp(17px, 2.2vw, 24px);
+  font-weight: 700;
+}
+
+.clorox-login-rule {
+  width: clamp(26px, 5vw, 42px);
+  height: 2px;
+  background: currentColor;
+  opacity: .55;
+}
+
+.clorox-role-switcher {
+  overflow: hidden;
+  border: 1px solid rgba(17,83,183,.12);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 9px 20px rgba(35,75,130,.08);
+}
+
+.clorox-role-switcher .MuiToggleButton-root {
+  min-height: 82px;
+  gap: 10px;
+  border: 0;
+  color: #1d3158;
+  font-size: clamp(15px, 2vw, 21px);
+  font-weight: 800;
+}
+
+.clorox-role-switcher .MuiToggleButton-root + .MuiToggleButton-root { border-inline-start: 1px solid #dfe7f4; }
+
+.clorox-role-switcher .MuiToggleButton-root svg { font-size: 31px; }
+
+.clorox-role-switcher .Mui-selected {
+  color: #fff !important;
+  background: linear-gradient(135deg, #578aff, #065ef5) !important;
+  box-shadow: 0 11px 19px rgba(15,96,241,.26);
+}
+
+.clorox-login-role-icon {
+  width: 112px;
+  height: 112px;
+  margin: 4px auto -1px;
+  display: grid;
+  place-items: center;
+  border: 12px solid #eef5ff;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #63a4ff, #075ef5);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.45), 0 10px 23px rgba(21,101,230,.18);
+}
+
+.clorox-login-role-icon svg { font-size: 57px; }
+
+.clorox-login-input .MuiOutlinedInput-root {
+  min-height: 78px;
+  border-radius: 22px;
+  background: rgba(255,255,255,.82);
+}
+
+.clorox-login-input .MuiOutlinedInput-notchedOutline { border-color: rgba(25,48,91,.22); }
+.clorox-login-input .MuiInputLabel-root { font-size: 17px; font-weight: 800; }
+.clorox-login-input .MuiInputBase-input { font-size: 21px; font-weight: 600; }
+.clorox-login-input .MuiInputAdornment-root { color: #0662ef; }
+.clorox-login-input .MuiInputAdornment-root svg { font-size: 30px; }
+
+.clorox-login-options .MuiFormControlLabel-label { font-size: 16px; font-weight: 700; }
+.clorox-login-options .MuiCheckbox-root { color: #1468ef; }
+
+.clorox-login-submit {
+  min-height: 74px;
+  border-radius: 22px;
+  font-size: clamp(21px, 2.9vw, 29px);
+  font-weight: 900;
+  background: linear-gradient(105deg, #5b8cf8, #075ef1);
+  box-shadow: 0 15px 25px rgba(0,83,226,.27);
+}
+
+.clorox-login-submit:hover { background: linear-gradient(105deg, #4a7ff4, #0053df); }
+.clorox-login-submit .MuiButton-endIcon svg { font-size: 34px; }
+
+.clorox-login-footer {
+  position: relative;
+  z-index: 1;
+  color: rgba(255,255,255,.94);
+  font-size: clamp(14px, 2vw, 19px);
+  font-weight: 600;
+  text-align: center;
+}
 
 .clorox-hero {
   position: relative;
@@ -81,11 +260,41 @@
 
 html[data-theme="dark"] .clorox-login {
   background:
-    radial-gradient(circle at 8% 13%, rgba(118,163,219,.18) 0 2px, transparent 2.5px) 0 0 / 17px 17px,
-    linear-gradient(148deg, #101720 0%, #172b43 48%, #0d3b7d 100%);
+    radial-gradient(ellipse at 54% -16%, rgba(73,137,214,.18), transparent 41%),
+    radial-gradient(circle at 0 47%, rgba(5,58,145,.58), transparent 29%),
+    linear-gradient(135deg, #101720 0%, #172b43 48%, #0d3b7d 100%);
 }
 
 html[data-theme="dark"] .clorox-login::before { border-color: rgba(73, 137, 214, .18); }
 html[data-theme="dark"] .clorox-login::after { border-color: rgba(16, 80, 169, .34); }
+html[data-theme="dark"] .clorox-login-theme-toggle { background: #202d3d; box-shadow: 0 8px 16px rgba(0,0,0,.26); }
+html[data-theme="dark"] .clorox-login-theme-toggle button { color: #ffd166; }
+html[data-theme="dark"] .clorox-login-theme-toggle button:hover { background: #293a4e; }
+html[data-theme="dark"] .clorox-role-switcher { border-color: #33465f; background: #162331; box-shadow: none; }
+html[data-theme="dark"] .clorox-role-switcher .MuiToggleButton-root { color: #d7e5f7; }
+html[data-theme="dark"] .clorox-role-switcher .MuiToggleButton-root + .MuiToggleButton-root { border-color: #33465f; }
+html[data-theme="dark"] .clorox-login-role-icon { border-color: #253a52; }
+html[data-theme="dark"] .clorox-login-input .MuiOutlinedInput-root { background: #121b26; }
+html[data-theme="dark"] .clorox-login-input .MuiOutlinedInput-notchedOutline { border-color: #3a4c62; }
+html[data-theme="dark"] .clorox-login-input .MuiInputAdornment-root { color: #8fbbff; }
 html[data-theme="dark"] .reference-nav { background: rgba(24,34,47,.96) !important; border-color: #2b3949 !important; }
 html[data-theme="dark"] .reference-add-button { border-color: #101720 !important; }
+
+@media (max-width: 600px) {
+  .clorox-login { gap: 17px; padding: 76px 14px 30px; }
+  .clorox-login-card { box-shadow: 0 20px 45px rgba(0,55,144,.2); }
+  .clorox-login-theme-toggle { top: 16px; left: 16px; }
+  .clorox-login-theme-toggle button { width: 46px; height: 46px; }
+  .clorox-login-dot-grid { top: 20px; right: -3%; width: 170px; height: 118px; background-size: 22px 22px; }
+  .clorox-login-glow-top { width: 270px; height: 270px; top: 146px; left: -207px; border-width: 40px; }
+  .clorox-role-switcher { border-radius: 18px; }
+  .clorox-role-switcher .MuiToggleButton-root { min-height: 68px; gap: 5px; }
+  .clorox-role-switcher .MuiToggleButton-root svg { font-size: 25px; }
+  .clorox-login-role-icon { width: 94px; height: 94px; border-width: 9px; }
+  .clorox-login-role-icon svg { font-size: 48px; }
+  .clorox-login-input .MuiOutlinedInput-root { min-height: 66px; border-radius: 18px; }
+  .clorox-login-input .MuiInputBase-input { font-size: 18px; }
+  .clorox-login-submit { min-height: 64px; border-radius: 18px; }
+  .clorox-login-options { align-items: flex-start; }
+  .clorox-login-options > .MuiTypography-root { max-width: 53%; font-size: 12px; }
+}
