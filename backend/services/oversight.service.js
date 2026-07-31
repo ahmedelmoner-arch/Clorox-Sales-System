@@ -140,7 +140,9 @@ function buildDelegateMetrics(delegates, reports, targets, supervisorAssignments
     rows.forEach((report) => {
       metric.actualPieces += toNumber(report.ActualPieces);
       metric.totalConsumers += toNumber(report.TotalConsumer);
-      if (text(report.ReportType) === "Vouchers") metric.vouchers += toNumber(report.Amount);
+      if (text(report.ReportType) === "Vouchers") {
+        metric.vouchers += toNumber(text(report.Vouchers) || report.Amount);
+      }
     });
   });
 

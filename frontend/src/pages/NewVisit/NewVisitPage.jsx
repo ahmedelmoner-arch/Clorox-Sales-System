@@ -51,7 +51,8 @@ export default function NewVisitPage() {
     Object.entries(productsByCategory).map(([category, products]) => {
       const target = products.reduce((total, product) => total + Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0), 0);
       const actual = products.reduce((total, product) => total + Number(entries[product.ProductID]?.actualPieces || 0), 0);
-      return [category, { target, actual, achievement: target ? Math.round((actual / target) * 100) : 0 }];
+      const salesValue = products.reduce((total, product) => total + Number(entries[product.ProductID]?.actualPieces || 0) * Number(product.UnitPrice || 0), 0);
+      return [category, { target, actual, salesValue, achievement: target ? Math.round((actual / target) * 100) : 0 }];
     }),
   ), [entries, init?.productTargets, productsByCategory]);
   const isVacation = form.reportType === "Vacation";
@@ -71,7 +72,8 @@ export default function NewVisitPage() {
   }
   function updateEntry(product, actualPieces) {
     const targetPieces = Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0);
-    setEntries((current) => ({ ...current, [product.ProductID]: { productId: product.ProductID, productName: product.ProductName, targetPieces, actualPieces } }));
+    const unitPrice = Number(product.UnitPrice || 0);
+    setEntries((current) => ({ ...current, [product.ProductID]: { productId: product.ProductID, productName: product.ProductName, targetPieces, unitPrice, actualPieces } }));
   }
 
   async function submit(event) {
@@ -144,6 +146,7 @@ export default function NewVisitPage() {
                   <Stack direction="row" spacing={{ xs: .75, sm: 1.5 }} divider={<Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(255,255,255,.35)" }} />} sx={{ flexShrink: 0, alignItems: "center" }}>
                     <Typography variant="caption" fontWeight={800} noWrap>الهدف {number(totals.target)}</Typography>
                     <Typography variant="caption" fontWeight={800} noWrap>المحقق {number(totals.actual)}</Typography>
+                    <Typography variant="caption" fontWeight={800} noWrap>القيمة {number(totals.salesValue)} ج.م</Typography>
                     <Typography variant="caption" fontWeight={900} noWrap>{totals.achievement}%</Typography>
                   </Stack>
                 </Box>
@@ -153,7 +156,7 @@ export default function NewVisitPage() {
                   const target = Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0);
                   const actual = entries[product.ProductID]?.actualPieces || "";
                   const achievement = target && actual !== "" ? Math.round((Number(actual) / target) * 100) : 0;
-                  return <Box key={product.ProductID} sx={{ py: 1.25, display: "grid", gridTemplateColumns: { xs: "1fr 110px", sm: "1fr 120px 140px 80px" }, gap: 1.5, alignItems: "center" }}><Box><Typography fontWeight={700}>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary">كود: {product.ProductID}</Typography></Box><Typography variant="body2" color="text.secondary">الهدف: {number(target)}</Typography><TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} /><Typography color="primary.main" fontWeight={800} textAlign="center">{achievement}%</Typography></Box>;
+                  return <Box key={product.ProductID} sx={{ py: 1.25, display: "grid", gridTemplateColumns: { xs: "1fr 110px", sm: "1fr 120px 140px 80px" }, gap: 1.5, alignItems: "center" }}><Box><Typography fontWeight={700}>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" display="block">كود: {product.ProductID}</Typography><Typography variant="caption" color="text.secondary">سعر الوحدة: {product.UnitPrice === "" || product.UnitPrice === undefined ? "غير محدد" : `${number(product.UnitPrice)} ج.م`}</Typography></Box><Typography variant="body2" color="text.secondary">الهدف: {number(target)}</Typography><TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} /><Typography color="primary.main" fontWeight={800} textAlign="center">{achievement}%</Typography></Box>;
                 })}
               </Stack></AccordionDetails>
             </Accordion>;

@@ -129,6 +129,7 @@ function buildCumulativeDetails(reports, targets, products, delegateId) {
     totalConsumers: summary.totalConsumers,
     targetConsumers,
     vouchers: summary.vouchers,
+    salesValue: summary.salesValue,
     reports: summary.count,
     piecesAchievement: targetPieces ? Math.round((summary.actualPieces / targetPieces) * 100) : 0,
     consumersAchievement: targetConsumers ? Math.round((summary.totalConsumers / targetConsumers) * 100) : 0,
@@ -211,6 +212,7 @@ function buildAnalyticsOverview(reports, productPerformance, customerDays) {
     positiveConsumers: summary.positiveConsumers,
     negativeConsumers: summary.negativeConsumers,
     vouchers: summary.vouchers,
+    salesValue: summary.salesValue,
     reports: summary.count,
     activeDays: reportDays.size,
     categories: [...categories.values()].map((category) => ({
@@ -312,6 +314,7 @@ async function getDashboardData(user, { month } = {}) {
       positiveConsumers: reportSummary.positiveConsumers,
       negativeConsumers: reportSummary.negativeConsumers,
       vouchers: reportSummary.vouchers,
+      salesValue: reportSummary.salesValue,
     },
     dailyDetails: buildDailyProductDetails(reports, productSheet.rows),
   };

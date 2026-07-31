@@ -32,6 +32,36 @@ function normalizeTargetValue(value) {
   return String(value ?? "").trim();
 }
 
+function hasValue(value) {
+  return String(value ?? "").trim() !== "";
+}
+
+function voucherValue(report) {
+  return toNumber(hasValue(report.Vouchers) ? report.Vouchers : report.Amount);
+}
+
+function resolveReportPricing(report, catalog) {
+  const product = catalog.get(String(report.ProductID || "").trim()) || {};
+  const hasStoredPrice = hasValue(report.UnitPrice);
+  const hasCatalogPrice = hasValue(product.UnitPrice);
+  const unitPrice = hasStoredPrice
+    ? toNumber(report.UnitPrice)
+    : hasCatalogPrice
+      ? toNumber(product.UnitPrice)
+      : 0;
+  const hasStoredSalesValue = hasValue(report.SalesValue);
+
+  return {
+    ...report,
+    UnitPrice: hasStoredPrice || hasCatalogPrice ? unitPrice : "",
+    SalesValue: hasStoredSalesValue
+      ? toNumber(report.SalesValue)
+      : unitPrice
+        ? toNumber(report.ActualPieces) * unitPrice
+        : "",
+  };
+}
+
 function matchesTargetBranch(target, branch) {
   const branchName = normalizeTargetValue(branch?.BranchName || branch?.name);
   const targetBranchName = normalizeTargetValue(target.BranchName);
@@ -73,7 +103,8 @@ function makeSummary(reports) {
       summary.positiveConsumers += toNumber(report.PostiveConsumer);
       summary.negativeConsumers += toNumber(report.NegativeConsumer);
       summary.totalConsumers += toNumber(report.TotalConsumer);
-      summary.vouchers += type === "Vouchers" ? toNumber(report.Amount) : 0;
+      summary.vouchers += type === "Vouchers" ? voucherValue(report) : 0;
+      summary.salesValue += type === "Vacation" ? 0 : toNumber(report.SalesValue);
       return summary;
     },
     {
@@ -85,6 +116,7 @@ function makeSummary(reports) {
       totalConsumers: 0,
       targetConsumers: 0,
       vouchers: 0,
+      salesValue: 0,
       byType: {},
     }
   );
@@ -185,6 +217,7 @@ function buildMonthlyAggregate(reports, targets, products, delegateId, month) {
     targetConsumers,
     consumersAchievement: targetConsumers ? Math.round((reportSummary.totalConsumers / targetConsumers) * 100) : 0,
     vouchers: reportSummary.vouchers,
+    salesValue: reportSummary.salesValue,
     reports: reportSummary.count,
     categories,
   };
@@ -200,10 +233,11 @@ async function getReportsForDelegate(user, { month, type, all = false } = {}) {
   const selectedMonth = all ? null : (month || currentMonth());
   const selectedType = type ? canonicalReportType(type) : null;
   const delegateId = user.delegateId || user.id;
+  const productCatalog = new Map(productSheet.rows.map((product) => [String(product.ProductID || "").trim(), product]));
 
   const reportsForMonth = rows.filter((report) => matchesDelegate(report, delegateId) && (all || reportMonth(report) === selectedMonth));
   const withResolvedTargetConsumers = (matchingReports) => matchingReports.map((report) => ({
-    ...report,
+    ...resolveReportPricing(report, productCatalog),
     TargetConsumer: getTargetsForDate(targetSheet.rows, user, toDate(report.Date), report).targetConsumers || toNumber(report.TargetConsumer),
   }));
   const reports = orderByDate(withResolvedTargetConsumers(reportsForMonth.filter((report) => !type || report.ReportType === selectedType)));
@@ -301,6 +335,9 @@ function buildRecord({ user, payload, reportType, date, branch, supervisor, prod
   const negativeConsumers = hasConsumerFields
     ? requireEnteredNonNegativeInteger(payload.negativeConsumers, "Negative consumers")
     : "";
+  const hasUnitPrice = product && hasValue(product.UnitPrice);
+  const unitPrice = hasUnitPrice ? toNumber(product.UnitPrice) : "";
+  const salesValue = hasUnitPrice ? product.actualPieces * unitPrice : "";
 
   return {
     UUID: reportId,
@@ -318,9 +355,11 @@ function buildRecord({ user, payload, reportType, date, branch, supervisor, prod
     ProductName: product?.ProductName || "",
     TargetPieces: product?.targetPieces || "",
     ActualPieces: product?.actualPieces || "",
-    Amount: reportType === "Vouchers" && isFirst
+    Vouchers: reportType === "Vouchers" && isFirst
       ? requireEnteredNonNegativeInteger(payload.vouchers, "Vouchers")
       : "",
+    UnitPrice: unitPrice,
+    SalesValue: salesValue,
     PostiveConsumer: positiveConsumers,
     NegativeConsumer: negativeConsumers,
     TotalConsumer: hasConsumerFields ? positiveConsumers + negativeConsumers : "",
