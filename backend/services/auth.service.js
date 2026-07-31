@@ -103,6 +103,7 @@ async function loginUser({ role, code, secretCode }) {
     user.delegateId = accountId;
     user.delegateName = name;
     user.supervisorCode = account.SupervisorCode || "";
+    user.avatarUrl = account.ProfileImage || "";
   }
   if (accountRole === "Supervisor") user.supervisorId = accountId;
   if (accountRole === "Management") user.managementId = accountId;

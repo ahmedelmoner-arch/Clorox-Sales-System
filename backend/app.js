@@ -6,6 +6,7 @@ const reportRoutes = require("./routes/report.routes");
 const visitRoutes = require("./routes/visit.routes");
 const dashboardRoutes = require("./routes/dashboard");
 const oversightRoutes = require("./routes/oversight.routes");
+const profileRoutes = require("./routes/profile.routes");
 const express = require("express");
 const cors = require("cors");
 
@@ -61,6 +62,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/visits", visitRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/oversight", oversightRoutes);
+app.use("/api/profile", profileRoutes);
 
 // API Prefix
 app.use("/api", (req, res) => {

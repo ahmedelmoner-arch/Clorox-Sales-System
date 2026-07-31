@@ -26,6 +26,14 @@ export function SessionProvider({ children }) {
       localStorage.setItem(storageKey, JSON.stringify(nextSession));
       setSession(nextSession);
     },
+    updateUser: (updates) => {
+      setSession((current) => {
+        if (!current?.user) return current;
+        const nextSession = { ...current, user: { ...current.user, ...updates } };
+        localStorage.setItem(storageKey, JSON.stringify(nextSession));
+        return nextSession;
+      });
+    },
     logout: () => {
       localStorage.removeItem(storageKey);
       setSession(null);
