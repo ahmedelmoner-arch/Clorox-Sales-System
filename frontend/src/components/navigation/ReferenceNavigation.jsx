@@ -11,8 +11,8 @@ const items = [
   { label: "الرئيسية", path: "/dashboard", icon: <HomeRoundedIcon /> },
   { label: "تقاريري", path: "/reports", icon: <AssessmentRoundedIcon /> },
   { label: "إضافة", path: "/visit", icon: <AddRoundedIcon />, primary: true },
-  { label: "داشبورد", path: "/profile", icon: <PersonRoundedIcon /> },
   { label: "تحليل", path: "/charts", icon: <SpaceDashboardRoundedIcon /> },
+  { label: "حسابي", path: "/profile", icon: <PersonRoundedIcon /> },
 ];
 
 export default function ReferenceNavigation() {
