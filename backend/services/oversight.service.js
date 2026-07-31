@@ -71,9 +71,9 @@ function buildCategoryRows(reports, targets, products) {
     const category = text(product.Category) || text(fallback.Category) || text(fallback.CategoryName) || "منتجات أخرى";
     const productName = text(product.ProductName) || text(fallback.ProductName) || productId;
     const key = `${category}-${productId}`;
-    if (!categories.has(category)) categories.set(category, { category, actualPieces: 0, targetPieces: 0, products: new Map() });
+    if (!categories.has(category)) categories.set(category, { category, actualPieces: 0, targetPieces: 0, salesValue: 0, products: new Map() });
     const categoryRow = categories.get(category);
-    if (!categoryRow.products.has(key)) categoryRow.products.set(key, { productId, productName, actualPieces: 0, targetPieces: 0 });
+    if (!categoryRow.products.has(key)) categoryRow.products.set(key, { productId, productName, actualPieces: 0, targetPieces: 0, salesValue: 0 });
     return { categoryRow, product: categoryRow.products.get(key) };
   }
 
@@ -91,14 +91,18 @@ function buildCategoryRows(reports, targets, products) {
     if (!productId) return;
     const { categoryRow, product } = ensure(productId, report);
     const amount = toNumber(report.ActualPieces);
+    const salesValue = toNumber(report.SalesValue);
     categoryRow.actualPieces += amount;
+    categoryRow.salesValue += salesValue;
     product.actualPieces += amount;
+    product.salesValue += salesValue;
   });
 
   return [...categories.values()].map((category) => ({
     category: category.category,
     actualPieces: category.actualPieces,
     targetPieces: category.targetPieces,
+    salesValue: category.salesValue,
     piecesAchievement: category.targetPieces ? Math.round((category.actualPieces / category.targetPieces) * 100) : 0,
     products: [...category.products.values()].map((product) => ({
       ...product,
@@ -151,6 +155,33 @@ function buildDelegateMetrics(delegates, reports, targets, supervisorAssignments
   });
 
   return [...metrics.values()].map(withAchievement);
+}
+
+function buildTeamDays(reports) {
+  const days = new Map();
+
+  reports.forEach((report) => {
+    const date = toDate(report.Date);
+    if (!date) return;
+    const day = days.get(date) || {
+      date,
+      actualPieces: 0,
+      totalConsumers: 0,
+      vouchers: 0,
+      salesValue: 0,
+      reportKeys: new Set(),
+    };
+    day.actualPieces += toNumber(report.ActualPieces);
+    day.totalConsumers += toNumber(report.TotalConsumer);
+    day.salesValue += toNumber(report.SalesValue);
+    if (text(report.ReportType) === "Vouchers") day.vouchers += toNumber(text(report.Vouchers) || report.Amount);
+    day.reportKeys.add(reportKey(report));
+    days.set(date, day);
+  });
+
+  return [...days.values()]
+    .map(({ reportKeys, ...day }) => ({ ...day, reports: reportKeys.size }))
+    .sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function buildSupervisorAssignments(delegates, supervisors, reports) {
@@ -272,6 +303,7 @@ async function getOversightData(user, { month } = {}) {
     supervisors: buildSupervisorRows(user, supervisorSheet.rows, delegates),
     delegates,
     categories: buildCategoryRows(reports, targets, productSheet.rows),
+    teamDays: buildTeamDays(reports),
   };
 }
 
