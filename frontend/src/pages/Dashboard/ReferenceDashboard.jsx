@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Box, Card, CardContent, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, IconButton, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, IconButton, Stack, Typography } from "@mui/material";
 import WavingHandRoundedIcon from "@mui/icons-material/WavingHandRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
@@ -13,7 +13,9 @@ import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import HourglassBottomRoundedIcon from "@mui/icons-material/HourglassBottomRounded";
 import AutoGraphRoundedIcon from "@mui/icons-material/AutoGraphRounded";
+import AutoStoriesRoundedIcon from "@mui/icons-material/AutoStoriesRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import { useNavigate } from "react-router-dom";
 import AppShell from "../../components/layout/AppShell";
 import { getDashboard } from "../../services/dashboard.service";
 import { useSession } from "../../context/SessionContext";
@@ -56,6 +58,7 @@ function DetailsDialog({ card, open, onClose, dailyDetails }) {
 
 export default function ReferenceDashboard() {
   const { user } = useSession();
+  const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => new Date());
@@ -88,6 +91,7 @@ export default function ReferenceDashboard() {
 
   return <AppShell hideHeader>
     <Card elevation={0} sx={{ minHeight: 178, overflow: "hidden", borderRadius: { xs: 3, sm: 4 }, color: "#fff", background: "linear-gradient(115deg, #246ee4 0%, #357eea 100%)", boxShadow: "0 12px 25px rgba(40,102,205,.2)" }}><CardContent sx={{ minHeight: 178, display: "grid", placeItems: "center", textAlign: "center", p: { xs: 2.25, sm: 3 } }}><Stack alignItems="center" spacing={.35}><WavingHandRoundedIcon sx={{ fontSize: 40, color: "#ffd269", transform: "rotate(-10deg)" }} /><Typography sx={{ fontSize: { xs: 16, sm: 18 }, opacity: .9, fontWeight: 600 }}>أهلاً بك</Typography><Typography sx={{ fontSize: { xs: 28, sm: 34 }, lineHeight: 1.25, fontWeight: 800 }}>{name}</Typography><Stack direction="row" spacing={.6} alignItems="center" sx={{ opacity: .88 }}><CalendarMonthRoundedIcon fontSize="small" /><Typography variant="caption" fontWeight={700}>{greeting} · {date}</Typography></Stack></Stack></CardContent></Card>
+    <Button fullWidth variant="outlined" onClick={() => navigate("/product-guide")} endIcon={<AutoStoriesRoundedIcon />} sx={{ mt: 1.8, minHeight: 48, bgcolor: "#fff", borderColor: "#dce6f6", color: "#175fc7", fontWeight: 900 }}>دليل المنتجات</Button>
     {error && <Alert severity="warning" sx={{ mt: 2 }}>{error}</Alert>}
     {!dashboard && !error ? <Box sx={{ minHeight: 320, display: "grid", placeItems: "center" }}><CircularProgress /></Box> : <Stack spacing={1.8} sx={{ mt: 1.8 }}><CumulativeCard card={cumulativeCard} onOpen={setSelectedCard} />{cards.map((card, index) => <MetricCard key={card.key} card={card} index={index} onOpen={setSelectedCard} />)}</Stack>}
     <DetailsDialog card={activeCard} open={Boolean(activeCard)} onClose={() => setSelectedCard(null)} dailyDetails={dashboard?.dailyDetails} />

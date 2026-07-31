@@ -1,6 +1,7 @@
 const authRoutes = require("./routes/auth.routes");
 const branchRoutes = require("./routes/branch.routes");
 const productRoutes = require("./routes/product.routes");
+const productGuideRoutes = require("./routes/product-guide.routes");
 const reportRoutes = require("./routes/report.routes");
 const visitRoutes = require("./routes/visit.routes");
 const dashboardRoutes = require("./routes/dashboard");
@@ -55,6 +56,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/branches", branchRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/product-guide", productGuideRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/visits", visitRoutes);
 app.use("/api/dashboard", dashboardRoutes);

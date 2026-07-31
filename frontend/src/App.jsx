@@ -12,6 +12,7 @@ const Vacation = lazy(() => import("./pages/Vacation/VacationPage"));
 const Profile = lazy(() => import("./pages/Profile/ProfilePage"));
 const Charts = lazy(() => import("./pages/Charts/ChartsPage"));
 const Oversight = lazy(() => import("./pages/Oversight/OversightPage"));
+const ProductGuide = lazy(() => import("./pages/ProductGuide/ProductGuidePage"));
 
 function RouteLoader() {
   return <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}><CircularProgress /></Box>;
@@ -50,6 +51,8 @@ export default function App() {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
       <Route path="/charts" element={<ProtectedRoute roles={["Delegate"]}><Charts /></ProtectedRoute>} />
+
+      <Route path="/product-guide" element={<ProtectedRoute><ProductGuide /></ProtectedRoute>} />
 
       <Route path="/oversight" element={<ProtectedRoute roles={["Supervisor", "Management"]}><Oversight /></ProtectedRoute>} />
 
