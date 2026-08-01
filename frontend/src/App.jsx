@@ -13,6 +13,7 @@ const Vacation = lazy(pageLoaders["/vacation"]);
 const Profile = lazy(pageLoaders["/profile"]);
 const Charts = lazy(pageLoaders["/charts"]);
 const Oversight = lazy(pageLoaders["/oversight"]);
+const Invoices = lazy(pageLoaders["/invoices"]);
 const ProductGuide = lazy(pageLoaders["/product-guide"]);
 
 function RouteLoader() {
@@ -40,7 +41,7 @@ export default function App() {
     if (!isAuthenticated) return undefined;
     const paths = normalizeRole(user?.role) === "Delegate"
       ? ["/visit", "/reports", "/profile"]
-      : ["/profile"];
+      : ["/profile", "/invoices"];
     const preload = () => paths.forEach(preloadRoute);
     const supportsIdleCallback = typeof window.requestIdleCallback === "function";
     const idleCallback = supportsIdleCallback ? window.requestIdleCallback(preload, { timeout: 1600 }) : undefined;
@@ -73,6 +74,8 @@ export default function App() {
       <Route path="/product-guide" element={<ProtectedRoute><ProductGuide /></ProtectedRoute>} />
 
       <Route path="/oversight" element={<ProtectedRoute roles={["Supervisor", "Management"]}><Oversight /></ProtectedRoute>} />
+
+      <Route path="/invoices" element={<ProtectedRoute roles={["Management"]}><Invoices /></ProtectedRoute>} />
 
     </Routes></Suspense>
   );

@@ -1,4 +1,4 @@
-const { getDelegateDrilldown, getOversightData } = require("../services/oversight.service");
+const { getDelegateDrilldown, getInvoiceAnalysis, getOversightData } = require("../services/oversight.service");
 
 async function getOversight(req, res) {
   try {
@@ -18,4 +18,13 @@ async function getDelegateDetails(req, res) {
   }
 }
 
-module.exports = { getDelegateDetails, getOversight };
+async function getInvoices(req, res) {
+  try {
+    const data = await getInvoiceAnalysis(req.user, { month: req.query.month });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+}
+
+module.exports = { getDelegateDetails, getInvoices, getOversight };

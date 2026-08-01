@@ -355,4 +355,27 @@ async function getDelegateDrilldown(user, { delegateId, month } = {}) {
   };
 }
 
-module.exports = { getOversightData, getDelegateDrilldown };
+async function getInvoiceAnalysis(user, { month } = {}) {
+  if (canonicalRole(user?.role) !== "Management") {
+    const error = new Error("You do not have permission to view invoices");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const selectedMonth = /^\d{4}-\d{2}$/.test(toMonth(month)) ? toMonth(month) : currentMonth();
+  const reportSheet = await getSheetRows("Reports");
+  const rows = reportSheet.rows.filter((report) => (
+    rowMonth(report) === selectedMonth && text(report.ReportType) === "Vouchers"
+  ));
+
+  return {
+    month: selectedMonth,
+    sourceSheet: "Reports",
+    headers: reportSheet.headers,
+    rows,
+    rowCount: rows.length,
+    invoiceCount: new Set(rows.map((row) => reportKey(row))).size,
+  };
+}
+
+module.exports = { getOversightData, getDelegateDrilldown, getInvoiceAnalysis };

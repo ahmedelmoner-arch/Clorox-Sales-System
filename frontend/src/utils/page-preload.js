@@ -7,6 +7,7 @@ export const pageLoaders = {
   "/profile": () => import("../pages/Profile/ProfilePage"),
   "/charts": () => import("../pages/Charts/ChartsPage"),
   "/oversight": () => import("../pages/Oversight/OversightPage"),
+  "/invoices": () => import("../pages/Oversight/InvoiceAnalysisPage"),
   "/product-guide": () => import("../pages/ProductGuide/ProductGuidePage"),
 };
 

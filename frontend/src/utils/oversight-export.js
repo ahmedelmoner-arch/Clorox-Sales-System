@@ -170,3 +170,39 @@ export function exportOversightCsv(data) {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
+
+function invoiceRows(data) {
+  const headers = Array.isArray(data?.headers) ? data.headers : [];
+  return (data?.rows || []).map((row) => Object.fromEntries(
+    headers.map((header) => [header, row?.[header] ?? ""])
+  ));
+}
+
+export async function exportInvoicesExcel(data) {
+  const rows = invoiceRows(data);
+  const headers = Array.isArray(data?.headers) ? data.headers : [];
+  const sheet = {
+    sheet: data?.sourceSheet || "Reports",
+    columns: headers.map(() => ({ width: 18 })),
+    data: [
+      headers.map((header) => ({ value: header, fontWeight: "bold", backgroundColor: "#EAF3FF" })),
+      ...rows.map((row) => headers.map((header) => safeCell(row[header]))),
+    ],
+  };
+  await writeExcelFile([sheet], { fontFamily: "Arial", fontSize: 11 })
+    .toFile(`فواتير-Reports-${data?.month || "الشهري"}.xlsx`);
+}
+
+export function exportInvoicesCsv(data) {
+  const headers = Array.isArray(data?.headers) ? data.headers : [];
+  const rows = invoiceRows(data);
+  const csv = `\uFEFF${headers.map(csvValue).join(",")}\n${rows.map((row) => headers.map((header) => csvValue(row[header])).join(",")).join("\n")}`;
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  link.href = url;
+  link.download = `فواتير-Reports-${data?.month || "الشهري"}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
