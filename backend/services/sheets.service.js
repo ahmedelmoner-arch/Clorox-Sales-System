@@ -128,15 +128,43 @@ async function appendSheetRows(sheetName, headers, records) {
   if (!records.length) return;
 
   const tableEndRow = await contiguousTableEndRow(sheetName);
-  const tableRange = `${sheetName}!A1:${columnLetter(headers.length)}${tableEndRow}`;
-
-  const response = await sheets.spreadsheets.values.append({
+  const insertAtRow = tableEndRow + 1;
+  const metadata = await sheets.spreadsheets.get({
     spreadsheetId: SPREADSHEET_ID,
-    // Give Google the exact contiguous table, not the whole column. This makes
-    // the new records land immediately below the final report row.
-    range: tableRange,
+    fields: "sheets.properties(sheetId,title)",
+  });
+  const targetSheet = (metadata.data.sheets || []).find(
+    (sheet) => sheet.properties?.title === sheetName
+  );
+  if (targetSheet?.properties?.sheetId === undefined) {
+    throw new Error(`Sheet ${sheetName} was not found`);
+  }
+
+  // values.append may treat far-away values or formatting as part of its table
+  // and place a record at the end of the grid. Insert at the first empty UUID
+  // row ourselves, then write to that exact range so every new report remains
+  // immediately below the contiguous report table.
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        insertDimension: {
+          range: {
+            sheetId: targetSheet.properties.sheetId,
+            dimension: "ROWS",
+            startIndex: insertAtRow - 1,
+            endIndex: insertAtRow - 1 + records.length,
+          },
+          inheritFromBefore: insertAtRow > 2,
+        },
+      }],
+    },
+  });
+
+  const response = await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A${insertAtRow}:${columnLetter(headers.length)}${insertAtRow + records.length - 1}`,
     valueInputOption: "RAW",
-    insertDataOption: "INSERT_ROWS",
     requestBody: {
       values: records.map((record) => headers.map((header) => record[header] ?? "")),
     },
@@ -144,8 +172,8 @@ async function appendSheetRows(sheetName, headers, records) {
   invalidateSheetCache(sheetName);
 
   return {
-    updatedRange: response.data.updates?.updatedRange || "",
-    updatedRows: response.data.updates?.updatedRows || records.length,
+    updatedRange: response.data.updatedRange || "",
+    updatedRows: response.data.updatedRows || records.length,
   };
 }
 
