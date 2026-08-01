@@ -29,20 +29,33 @@ const allowedOrigins = new Set([
 ]);
 const localDevelopmentOrigin = /^http:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/;
 
+function isSameOriginRequest(req, origin) {
+  try {
+    const originUrl = new URL(origin);
+    const requestHost = String(req.get("host") || "").toLowerCase();
+    const requestProtocol = String(req.protocol || "").toLowerCase();
+    return originUrl.host.toLowerCase() === requestHost
+      && (!requestProtocol || originUrl.protocol === `${requestProtocol}:`);
+  } catch {
+    return false;
+  }
+}
+
 // Middlewares
 app.use(helmet());
-app.use(cors({
+app.use((req, res, next) => cors({
   origin(origin, callback) {
     if (
-      !origin ||
-      allowedOrigins.has(origin) ||
-      (isDevelopment && localDevelopmentOrigin.test(origin))
+      !origin
+      || isSameOriginRequest(req, origin)
+      || allowedOrigins.has(origin)
+      || (isDevelopment && localDevelopmentOrigin.test(origin))
     ) {
       return callback(null, true);
     }
     return callback(new Error("Origin is not allowed by CORS"));
   },
-}));
+})(req, res, next));
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 

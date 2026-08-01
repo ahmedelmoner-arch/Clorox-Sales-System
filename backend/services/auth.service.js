@@ -78,7 +78,7 @@ async function loginUser({ role, code, secretCode }) {
   const config = ACCOUNT_CONFIG[accountRole];
   if (!config) return { success: false, message: "Invalid account type" };
 
-  const { headers, rows, sheetName } = await readAccountSheet(config);
+  const { headers, rows, rowNumbers, sheetName } = await readAccountSheet(config);
   if (!hasCredentialColumn(headers)) {
     throw configurationError(`يجب إضافة عمود SecretCode في شيت ${sheetName} قبل تسجيل دخول هذا الدور`);
   }
