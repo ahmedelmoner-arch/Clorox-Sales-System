@@ -2,6 +2,9 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../config/env");
 const { canonicalRole } = require("../utils/roles");
 
+const JWT_ISSUER = "clorox-sales-api";
+const JWT_AUDIENCE = "clorox-sales-app";
+
 function authenticate(req, res, next) {
     try {
         const authHeader = req.headers.authorization;
@@ -17,7 +20,12 @@ function authenticate(req, res, next) {
 
         const decoded = jwt.verify(
             token,
-            JWT_SECRET
+            JWT_SECRET,
+            {
+                algorithms: ["HS256"],
+                audience: JWT_AUDIENCE,
+                issuer: JWT_ISSUER,
+            }
         );
 
         req.user = decoded;

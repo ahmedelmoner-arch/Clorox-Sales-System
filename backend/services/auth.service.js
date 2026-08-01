@@ -1,4 +1,4 @@
-const { getSheetRows } = require("./sheets.service");
+const { getSheetRows, updateSheetRow } = require("./sheets.service");
 const { generateToken } = require("../utils/jwt");
 const { canonicalRole } = require("../utils/roles");
 const bcrypt = require("bcrypt");
@@ -34,6 +34,10 @@ const SECRET_FIELDS = ["SecretCode", "Secret", "Password", "PasswordHash"];
 function firstValue(row, fields) {
   const field = fields.find((name) => Object.prototype.hasOwnProperty.call(row, name));
   return field ? row[field] : "";
+}
+
+function firstField(row, fields) {
+  return fields.find((name) => Object.prototype.hasOwnProperty.call(row, name)) || "";
 }
 
 function hasCredentialColumn(headers) {
@@ -80,16 +84,33 @@ async function loginUser({ role, code, secretCode }) {
   }
 
   let account = null;
-  for (const row of rows) {
+  let accountIndex = -1;
+  let secretField = "";
+  for (const [index, row] of rows.entries()) {
     if (normalizeDelegateCode(firstValue(row, config.codeFields)) !== normalizeDelegateCode(code)) continue;
-    if (await secretMatches(firstValue(row, SECRET_FIELDS), secretCode)) {
+    const candidateSecretField = firstField(row, SECRET_FIELDS);
+    if (await secretMatches(row[candidateSecretField], secretCode)) {
       account = row;
+      accountIndex = index;
+      secretField = candidateSecretField;
       break;
     }
   }
 
   if (!account) {
     return { success: false, message: "Invalid access code or secret code" };
+  }
+
+  const storedSecret = normalize(account[secretField]);
+  if (secretField && storedSecret && !storedSecret.startsWith("$2")) {
+    try {
+      await updateSheetRow(sheetName, headers, rowNumbers[accountIndex], {
+        ...account,
+        [secretField]: await bcrypt.hash(String(secretCode ?? ""), 12),
+      });
+    } catch (error) {
+      console.warn(`Could not upgrade the secret hash for ${sheetName}.`, error.message);
+    }
   }
 
   const accountId = firstValue(account, config.codeFields);

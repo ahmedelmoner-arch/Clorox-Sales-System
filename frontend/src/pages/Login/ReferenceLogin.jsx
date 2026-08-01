@@ -184,7 +184,7 @@ export default function ReferenceLogin() {
         </Stack>
       </Paper>
 
-      <Typography className="clorox-login-footer">كلوروكس © 2024 - جميع الحقوق محفوظة</Typography>
+      <Typography className="clorox-login-footer">كلوركس © 2026 - جميع الحقوق محفوظة</Typography>
     </Box>
   );
 }

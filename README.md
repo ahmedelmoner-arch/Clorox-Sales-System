@@ -16,7 +16,7 @@ GOOGLE_SERVICE_ACCOUNT_JSON=<entire service-account JSON file on one line>
 JWT_SECRET=<long random secret>
 ```
 
-Optionally set `CORS_ORIGINS` for a custom domain, as a comma-separated list of allowed origins.
+For a custom frontend domain, set `CORS_ORIGINS` to its exact origin (for example, `https://sales.example.com`). Multiple origins can be comma-separated. Do not use wildcards.
 
 ## Deploy
 

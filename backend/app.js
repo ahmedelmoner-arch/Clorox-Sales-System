@@ -10,26 +10,33 @@ const profileRoutes = require("./routes/profile.routes");
 const shortageRoutes = require("./routes/shortage.routes");
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const { apiRateLimit } = require("./middleware/api-rate-limit.middleware");
 
 const app = express();
 app.set("trust proxy", 1);
+const isDevelopment = process.env.NODE_ENV !== "production";
 const defaultOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
-const allowedOrigins = (process.env.CORS_ORIGINS || defaultOrigins.join(","))
+const configuredOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const isDevelopment = process.env.NODE_ENV !== "production";
+const deploymentOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+const allowedOrigins = new Set([
+  ...configuredOrigins,
+  ...(deploymentOrigin ? [deploymentOrigin] : []),
+  ...(isDevelopment ? defaultOrigins : []),
+]);
 const localDevelopmentOrigin = /^http:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/;
-const vercelOrigin = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
 // Middlewares
+app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
     if (
       !origin ||
-      allowedOrigins.includes(origin) ||
-      (isDevelopment && localDevelopmentOrigin.test(origin)) ||
-      (process.env.VERCEL && vercelOrigin.test(origin))
+      allowedOrigins.has(origin) ||
+      (isDevelopment && localDevelopmentOrigin.test(origin))
     ) {
       return callback(null, true);
     }
@@ -55,6 +62,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/api", apiRateLimit);
 app.use("/api/auth", authRoutes);
 app.use("/api/branches", branchRoutes);
 app.use("/api/products", productRoutes);

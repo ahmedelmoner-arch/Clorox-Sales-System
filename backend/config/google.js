@@ -24,7 +24,6 @@ const auth = new google.auth.GoogleAuth({
   ...(credentials ? { credentials } : { keyFile: GOOGLE_SERVICE_ACCOUNT }),
   scopes: [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
   ],
 });
 
@@ -33,13 +32,7 @@ const sheets = google.sheets({
   auth,
 });
 
-const drive = google.drive({
-  version: "v3",
-  auth,
-});
-
 module.exports = {
   auth,
   sheets,
-  drive,
 };

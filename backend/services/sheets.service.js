@@ -1,6 +1,16 @@
 const { sheets } = require("../config/google");
 const { SPREADSHEET_ID } = require("../config/env");
 
+const CACHE_TTL_MS = 5000;
+const sheetRowsCache = new Map();
+const sheetTitlesCache = { expiresAt: 0, value: null };
+
+function invalidateSheetCache(sheetName) {
+  sheetRowsCache.delete(sheetName);
+  sheetTitlesCache.expiresAt = 0;
+  sheetTitlesCache.value = null;
+}
+
 function requireSpreadsheetId() {
   if (!SPREADSHEET_ID) {
     const error = new Error("SPREADSHEET_ID is missing. Add it to Vercel Environment Variables or backend/.env.");
@@ -46,39 +56,52 @@ async function contiguousTableEndRow(sheetName) {
 async function getSheetRows(sheetName) {
   requireSpreadsheetId();
 
-  const response = await sheets.spreadsheets.values.get({
+  const cached = sheetRowsCache.get(sheetName);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const request = sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     // Reports now includes audit fields after the original columns. Keep the
     // read range wider so those fields remain available when the row is edited.
     range: `${sheetName}!A:AZ`,
+  }).then((response) => {
+    const values = response.data.values || [];
+    if (!values.length) return { headers: [], rows: [], rowNumbers: [] };
+
+    const headers = values[0];
+    const rows = [];
+    const rowNumbers = [];
+    values.slice(1).forEach((row, index) => {
+      if (!row.some((value) => value !== "")) return;
+      rows.push(asRecord(headers, row));
+      rowNumbers.push(index + 2);
+    });
+
+    return { headers, rows, rowNumbers };
   });
-  const values = response.data.values || [];
 
-  if (!values.length) return { headers: [], rows: [], rowNumbers: [] };
-
-  const headers = values[0];
-  const rows = [];
-  const rowNumbers = [];
-  values.slice(1).forEach((row, index) => {
-    if (!row.some((value) => value !== "")) return;
-    rows.push(asRecord(headers, row));
-    rowNumbers.push(index + 2);
-  });
-
-  return {
-    headers,
-    rows,
-    rowNumbers,
-  };
+  sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value: request });
+  try {
+    const value = await request;
+    sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+    return value;
+  } catch (error) {
+    sheetRowsCache.delete(sheetName);
+    throw error;
+  }
 }
 
 async function getSheetTitles() {
   requireSpreadsheetId();
+  if (sheetTitlesCache.value && sheetTitlesCache.expiresAt > Date.now()) return sheetTitlesCache.value;
   const response = await sheets.spreadsheets.get({
     spreadsheetId: SPREADSHEET_ID,
     fields: "sheets.properties.title",
   });
-  return new Set((response.data.sheets || []).map((sheet) => sheet.properties?.title).filter(Boolean));
+  const titles = new Set((response.data.sheets || []).map((sheet) => sheet.properties?.title).filter(Boolean));
+  sheetTitlesCache.value = titles;
+  sheetTitlesCache.expiresAt = Date.now() + CACHE_TTL_MS;
+  return titles;
 }
 
 async function ensureSheetExists(sheetName) {
@@ -91,6 +114,7 @@ async function ensureSheetExists(sheetName) {
       requests: [{ addSheet: { properties: { title: sheetName } } }],
     },
   });
+  invalidateSheetCache(sheetName);
 }
 
 async function getSheetRowsIfExists(sheetName) {
@@ -117,6 +141,7 @@ async function appendSheetRows(sheetName, headers, records) {
       values: records.map((record) => headers.map((header) => record[header] ?? "")),
     },
   });
+  invalidateSheetCache(sheetName);
 
   return {
     updatedRange: response.data.updates?.updatedRange || "",
@@ -138,6 +163,7 @@ async function updateSheetRow(sheetName, headers, rowNumber, record) {
       values: [headers.map((header) => record[header] ?? "")],
     },
   });
+  invalidateSheetCache(sheetName);
 
   return {
     updatedRange: response.data.updatedRange || "",
@@ -158,6 +184,7 @@ async function ensureSheetHeaders(sheetName, requiredHeaders) {
     valueInputOption: "RAW",
     requestBody: { values: [updatedHeaders] },
   });
+  invalidateSheetCache(sheetName);
 
   return updatedHeaders;
 }
