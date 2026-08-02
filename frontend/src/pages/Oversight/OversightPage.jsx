@@ -18,9 +18,9 @@ import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AppShell from "../../components/layout/AppShell";
 import { useSession } from "../../context/SessionContext";
-import { getDelegateDrilldown, getOversight, getSupervisorDrilldown } from "../../services/oversight.service";
+import { getDelegateDrilldown, getInvoices, getOversight, getSupervisorDrilldown } from "../../services/oversight.service";
 import { updateShortageStatus } from "../../services/shortage.service";
-import { exportOversightCsv, exportOversightExcel } from "../../utils/oversight-export";
+import { exportInvoicesCsv, exportInvoicesExcel, exportOversightCsv, exportOversightExcel } from "../../utils/oversight-export";
 import { normalizeRole, roleLabel } from "../../utils/roles";
 import { getCairoDate } from "../../utils/date";
 
@@ -1244,6 +1244,13 @@ export default function OversightPage() {
     if (!data || exportingFormat) return;
     try {
       setExportingFormat(format);
+      if (role === "Management") {
+        const invoiceData = await getInvoices(month, selectedDate);
+        if (format === "excel") await exportInvoicesExcel(invoiceData);
+        else exportInvoicesCsv(invoiceData);
+        return;
+      }
+
       if (format === "excel") await exportOversightExcel(data);
       else exportOversightCsv(data);
     } catch {
@@ -1461,10 +1468,10 @@ export default function OversightPage() {
           )}
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" size="small" startIcon={<FileDownloadOutlinedIcon />} disabled={!data || Boolean(exportingFormat)} onClick={() => downloadReport("excel")}>
-              {exportingFormat === "excel" ? "جارٍ تجهيز Excel..." : "Excel"}
+              {exportingFormat === "excel" ? "جارٍ تجهيز Excel..." : role === "Management" ? "Excel خام" : "Excel"}
             </Button>
             <Button variant="outlined" size="small" startIcon={<FileDownloadOutlinedIcon />} disabled={!data || Boolean(exportingFormat)} onClick={() => downloadReport("csv")}>
-              {exportingFormat === "csv" ? "جارٍ تجهيز CSV..." : "CSV"}
+              {exportingFormat === "csv" ? "جارٍ تجهيز CSV..." : role === "Management" ? "CSV خام" : "CSV"}
             </Button>
           </Stack>
         </Stack>
