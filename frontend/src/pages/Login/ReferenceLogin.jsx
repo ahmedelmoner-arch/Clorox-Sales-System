@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -36,7 +36,7 @@ const roles = [
 
 export default function ReferenceLogin() {
   const navigate = useNavigate();
-  const { login } = useSession();
+  const { login, isAuthenticated, ready, user } = useSession();
   const theme = useTheme();
   const [role, setRole] = useState("Delegate");
   const [accessCode, setAccessCode] = useState("");
@@ -46,6 +46,10 @@ export default function ReferenceLogin() {
   const [loading, setLoading] = useState(false);
   const activeRole = roles.find((item) => item.value === role) || roles[0];
   const isDark = theme.palette.mode === "dark";
+
+  useEffect(() => {
+    if (ready && isAuthenticated) navigate(roleHome(user?.role), { replace: true });
+  }, [isAuthenticated, navigate, ready, user?.role]);
 
   function selectRole(_, nextRole) {
     if (!nextRole) return;
@@ -58,6 +62,10 @@ export default function ReferenceLogin() {
   async function submit(event) {
     event.preventDefault();
     setError("");
+    if (!navigator.onLine) {
+      setError("لا يمكن تسجيل الدخول لأول مرة بدون إنترنت. اتصلي مرة واحدة ثم سيفتح التطبيق لاحقًا بالجلسة المحفوظة.");
+      return;
+    }
     if (!accessCode.trim() || !secretCode.trim()) {
       setError("أدخل كود الحساب والرمز السري للمتابعة.");
       return;
@@ -72,11 +80,14 @@ export default function ReferenceLogin() {
       const message = requestError.response?.data?.message;
       if (message) setError(message);
       else if (requestError.code === "ECONNABORTED") setError("استغرق الاتصال بالخادم وقتًا أطول من المتوقع. حاولي مرة أخرى.");
-      else setError("تعذر الاتصال بالخادم. راجعي رابط المشروع وحاولي مرة أخرى.");
+      else if (!navigator.onLine) setError("لا يمكن تسجيل الدخول لأول مرة بدون إنترنت. اتصلي مرة واحدة ثم سيفتح التطبيق لاحقًا بالجلسة المحفوظة.");
+      else setError("تعذر الاتصال بالخادم. تحققي من الإنترنت ثم حاولي مرة أخرى.");
     } finally {
       setLoading(false);
     }
   }
+
+  if (ready && isAuthenticated) return null;
 
   return (
     <Box className="clorox-login">
