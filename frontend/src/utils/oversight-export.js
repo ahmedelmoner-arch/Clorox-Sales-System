@@ -17,8 +17,8 @@ function safeCell(value) {
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
 }
 
-function fileBaseName(month) {
-  return `تقرير-المتابعة-${month || "الشهري"}`;
+function fileBaseName(month, date) {
+  return `تقرير-المتابعة-${date || month || "الشهري"}`;
 }
 
 function percentage(value) {
@@ -149,7 +149,7 @@ export async function exportOversightExcel(data) {
     asSheet("الأيام", dailyRows(data.teamDays)),
   ];
   if (data.supervisors?.length) sheets.splice(2, 0, asSheet("المشرفون", supervisorRows(data.supervisors)));
-  await writeExcelFile(sheets, { fontFamily: "Arial", fontSize: 11 }).toFile(`${fileBaseName(data.month)}.xlsx`);
+  await writeExcelFile(sheets, { fontFamily: "Arial", fontSize: 11 }).toFile(`${fileBaseName(data.month, data.date)}.xlsx`);
 }
 
 function csvValue(value) {
@@ -164,7 +164,7 @@ export function exportOversightCsv(data) {
   const link = document.createElement("a");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   link.href = url;
-  link.download = `${fileBaseName(data.month)}-المندوبات.csv`;
+  link.download = `${fileBaseName(data.month, data.date)}-المندوبات.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();

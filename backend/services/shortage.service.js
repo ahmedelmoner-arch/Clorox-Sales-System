@@ -78,10 +78,12 @@ function normalizeStatus(value) {
   return SHORTAGE_STATUSES.has(text(value, 50)) ? text(value, 50) : "Open";
 }
 
-function buildShortageAnalytics(rows, { month } = {}) {
+function buildShortageAnalytics(rows, { month, date } = {}) {
   const selectedMonth = /^\d{4}-\d{2}$/.test(toMonth(month)) ? toMonth(month) : "";
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(toDate(date)) ? toDate(date) : "";
   const filtered = rows
     .filter((row) => !selectedMonth || rowMonth(row) === selectedMonth)
+    .filter((row) => !selectedDate || toDate(row.Date) === selectedDate)
     .map((row) => ({
       ...row,
       Date: toDate(row.Date),
@@ -143,6 +145,7 @@ function buildShortageAnalytics(rows, { month } = {}) {
 
   return {
     month: selectedMonth || "all",
+    date: selectedDate,
     total,
     open: total - resolved,
     resolved,
@@ -155,16 +158,16 @@ function buildShortageAnalytics(rows, { month } = {}) {
   };
 }
 
-async function getShortageAnalytics(user, { month } = {}) {
+async function getShortageAnalytics(user, { month, date } = {}) {
   const sheet = await getSheetRowsIfExists(SHORTAGE_SHEET);
   const delegateId = user.delegateId || user.id;
-  return buildShortageAnalytics(sheet.rows.filter((row) => matchesDelegate(row, delegateId)), { month });
+  return buildShortageAnalytics(sheet.rows.filter((row) => matchesDelegate(row, delegateId)), { month, date });
 }
 
-async function getShortageAnalyticsForDelegateIds(delegateIds, { month } = {}) {
+async function getShortageAnalyticsForDelegateIds(delegateIds, { month, date } = {}) {
   const allowedIds = new Set([...delegateIds].map((delegateId) => text(delegateId, 100)).filter(Boolean));
   const sheet = await getSheetRowsIfExists(SHORTAGE_SHEET);
-  return buildShortageAnalytics(sheet.rows.filter((row) => allowedIds.has(text(row.DelegateID, 100))), { month });
+  return buildShortageAnalytics(sheet.rows.filter((row) => allowedIds.has(text(row.DelegateID, 100))), { month, date });
 }
 
 async function createShortages(user, payload = {}) {

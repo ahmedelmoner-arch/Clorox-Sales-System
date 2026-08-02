@@ -1,12 +1,24 @@
 import api from "../api/axios";
 
-export async function getOversight(month) {
-  const { data } = await api.get("/oversight", { params: month ? { month } : undefined });
+function rangeParams(month, date) {
+  return {
+    ...(month ? { month } : {}),
+    ...(date ? { date } : {}),
+  };
+}
+
+export async function getOversight(month, date) {
+  const { data } = await api.get("/oversight", { params: rangeParams(month, date) });
   return data.data;
 }
 
-export async function getDelegateDrilldown(delegateId, month) {
-  const { data } = await api.get(`/oversight/delegates/${encodeURIComponent(delegateId)}`, { params: month ? { month } : undefined });
+export async function getDelegateDrilldown(delegateId, month, date) {
+  const { data } = await api.get(`/oversight/delegates/${encodeURIComponent(delegateId)}`, { params: rangeParams(month, date) });
+  return data.data;
+}
+
+export async function getSupervisorDrilldown(supervisorId, month, date) {
+  const { data } = await api.get(`/oversight/supervisors/${encodeURIComponent(supervisorId)}`, { params: rangeParams(month, date) });
   return data.data;
 }
 

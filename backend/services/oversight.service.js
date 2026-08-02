@@ -18,6 +18,23 @@ function rowMonth(row) {
   return /^\d{4}-\d{2}$/.test(month) ? month : toMonth(row.Date);
 }
 
+function selectedRange({ month, date } = {}) {
+  const selectedMonth = /^\d{4}-\d{2}$/.test(toMonth(month)) ? toMonth(month) : currentMonth();
+  const normalizedDate = toDate(date);
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(normalizedDate) && toMonth(normalizedDate) === selectedMonth
+    ? normalizedDate
+    : "";
+  return { month: selectedMonth, date: selectedDate };
+}
+
+function matchesReportRange(row, range) {
+  return rowMonth(row) === range.month && (!range.date || toDate(row.Date) === range.date);
+}
+
+function matchesTargetRange(row, range) {
+  return rowMonth(row) === range.month && (!range.date || toDate(row.Date) === range.date);
+}
+
 function branchKey(row) {
   return text(row.BranchName) || text(row.BranchID) || "all-branches";
 }
@@ -265,15 +282,15 @@ function buildSupervisorRows(user, supervisors, delegateRows) {
   });
 
   if (role === "Management") {
-    const assigned = new Set(definitions.map((supervisor) => supervisor.supervisorId));
-    const unassigned = delegateRows.filter((delegate) => !assigned.has(delegate.supervisorCode));
+    const assigned = new Set(definitions.map((supervisor) => key(supervisor.supervisorId)));
+    const unassigned = delegateRows.filter((delegate) => !assigned.has(key(delegate.supervisorCode)));
     if (unassigned.length) rows.push(withAchievement({ supervisorId: "unassigned", supervisorName: "غير محدد", delegates: unassigned.length, ...sumMetrics(unassigned) }));
   }
   return rows.sort((left, right) => right.actualPieces - left.actualPieces || left.supervisorName.localeCompare(right.supervisorName, "ar"));
 }
 
-async function getOversightData(user, { month } = {}) {
-  const selectedMonth = /^\d{4}-\d{2}$/.test(toMonth(month)) ? toMonth(month) : currentMonth();
+async function getOversightData(user, { month, date } = {}) {
+  const range = selectedRange({ month, date });
   const [reportSheet, targetSheet, productSheet, delegateSheet, supervisorSheet, unitPriceSheet] = await Promise.all([
     getSheetRows("Reports"),
     getSheetRows("Targets"),
@@ -287,15 +304,16 @@ async function getOversightData(user, { month } = {}) {
   const supervisorId = supervisorIdForUser(user, supervisorSheet.rows);
   const team = scopedDelegates(user, delegateSheet.rows, supervisorAssignments, reportSheet.rows, targetSheet.rows, supervisorId);
   const teamIds = new Set(team.map((delegate) => text(delegate.DelegateID)));
-  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => rowMonth(report) === selectedMonth && (
+  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => matchesReportRange(report, range) && (
     role === "Management" || teamIds.has(text(report.DelegateID)) || key(report.SupervisorsID) === supervisorId
   )), productSheet.rows, unitPriceSheet.rows);
-  const targets = targetSheet.rows.filter((target) => teamIds.has(text(target.DelegateID)) && rowMonth(target) === selectedMonth);
+  const targets = targetSheet.rows.filter((target) => teamIds.has(text(target.DelegateID)) && matchesTargetRange(target, range));
   const delegates = buildDelegateMetrics(team, reports, targets, supervisorAssignments).sort((left, right) => right.actualPieces - left.actualPieces || left.delegateName.localeCompare(right.delegateName, "ar"));
-  const shortages = await getShortageAnalyticsForDelegateIds(teamIds, { month: selectedMonth });
+  const shortages = await getShortageAnalyticsForDelegateIds(teamIds, range);
 
   return {
-    month: selectedMonth,
+    month: range.month,
+    date: range.date,
     scope: {
       role,
       name: text(user.name),
@@ -310,8 +328,8 @@ async function getOversightData(user, { month } = {}) {
   };
 }
 
-async function getDelegateDrilldown(user, { delegateId, month } = {}) {
-  const selectedMonth = /^\d{4}-\d{2}$/.test(toMonth(month)) ? toMonth(month) : currentMonth();
+async function getDelegateDrilldown(user, { delegateId, month, date } = {}) {
+  const range = selectedRange({ month, date });
   const requestedDelegateId = text(delegateId);
   const [reportSheet, targetSheet, productSheet, delegateSheet, supervisorSheet, unitPriceSheet] = await Promise.all([
     getSheetRows("Reports"),
@@ -331,26 +349,97 @@ async function getDelegateDrilldown(user, { delegateId, month } = {}) {
     throw error;
   }
 
-  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => key(report.DelegateID) === key(delegate.DelegateID) && rowMonth(report) === selectedMonth), productSheet.rows, unitPriceSheet.rows);
-  const targets = targetSheet.rows.filter((target) => key(target.DelegateID) === key(delegate.DelegateID) && rowMonth(target) === selectedMonth);
-  const summary = buildMonthlyAggregate(reports, targets, productSheet.rows, delegate.DelegateID, selectedMonth);
-  const shortages = await getShortageAnalyticsForDelegateIds(new Set([delegate.DelegateID]), { month: selectedMonth });
+  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => key(report.DelegateID) === key(delegate.DelegateID) && matchesReportRange(report, range)), productSheet.rows, unitPriceSheet.rows);
+  const targets = targetSheet.rows.filter((target) => key(target.DelegateID) === key(delegate.DelegateID) && matchesTargetRange(target, range));
+  const summary = buildMonthlyAggregate(reports, targets, productSheet.rows, delegate.DelegateID, range.month);
+  const shortages = await getShortageAnalyticsForDelegateIds(new Set([delegate.DelegateID]), range);
   const days = [...new Set(reports.map((report) => toDate(report.Date)).filter(Boolean))]
     .sort((left, right) => right.localeCompare(left))
     .map((date) => {
       const dayReports = reports.filter((report) => toDate(report.Date) === date);
       const dayTargets = targets.filter((target) => toDate(target.Date) === date);
-      return { date, ...buildMonthlyAggregate(dayReports, dayTargets, productSheet.rows, delegate.DelegateID, selectedMonth) };
+      return { date, ...buildMonthlyAggregate(dayReports, dayTargets, productSheet.rows, delegate.DelegateID, range.month) };
     });
 
   return {
-    month: selectedMonth,
+    month: range.month,
+    date: range.date,
     delegate: {
       delegateId: text(delegate.DelegateID),
       delegateName: text(delegate.DelegateName) || text(delegate.Name),
     },
     summary,
     days,
+    shortages,
+  };
+}
+
+async function getSupervisorDrilldown(user, { supervisorId, month, date } = {}) {
+  if (canonicalRole(user?.role) !== "Management") {
+    const error = new Error("You do not have permission to view supervisor teams");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const range = selectedRange({ month, date });
+  const requestedSupervisorId = text(supervisorId);
+  const [reportSheet, targetSheet, productSheet, delegateSheet, supervisorSheet, unitPriceSheet] = await Promise.all([
+    getSheetRows("Reports"),
+    getSheetRows("Targets"),
+    getSheetRows("Products"),
+    getSheetRows("Delegates"),
+    getSheetRows("Supervisors"),
+    getSheetRows(UNIT_PRICE_SHEET),
+  ]);
+  const isUnassigned = key(requestedSupervisorId) === "UNASSIGNED";
+  const supervisor = supervisorSheet.rows.find((row) => key(row.SupervisorsID) === key(requestedSupervisorId));
+  if (!isUnassigned && !supervisor) {
+    const error = new Error("Supervisor not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const supervisorAssignments = buildSupervisorAssignments(delegateSheet.rows, supervisorSheet.rows, reportSheet.rows);
+  const allDelegates = scopedDelegates(user, delegateSheet.rows, supervisorAssignments, reportSheet.rows, targetSheet.rows, "");
+  const knownSupervisorIds = new Set(supervisorSheet.rows.map((row) => key(row.SupervisorsID)).filter(Boolean));
+  const team = allDelegates.filter((delegate) => {
+    const assignedSupervisor = key(supervisorAssignments.get(text(delegate.DelegateID)));
+    return isUnassigned
+      ? !knownSupervisorIds.has(assignedSupervisor)
+      : assignedSupervisor === key(supervisor.SupervisorsID);
+  });
+  const teamIds = new Set(team.map((delegate) => text(delegate.DelegateID)));
+  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => (
+    teamIds.has(text(report.DelegateID)) && matchesReportRange(report, range)
+  )), productSheet.rows, unitPriceSheet.rows);
+  const targets = targetSheet.rows.filter((target) => (
+    teamIds.has(text(target.DelegateID)) && matchesTargetRange(target, range)
+  ));
+  const delegates = buildDelegateMetrics(team, reports, targets, supervisorAssignments)
+    .sort((left, right) => right.actualPieces - left.actualPieces || left.delegateName.localeCompare(right.delegateName, "ar"));
+  const shortages = await getShortageAnalyticsForDelegateIds(teamIds, range);
+  const resolvedSupervisorId = isUnassigned ? "unassigned" : text(supervisor.SupervisorsID);
+  const resolvedSupervisorName = isUnassigned
+    ? "غير محدد"
+    : text(supervisor.SupervisorName) || text(supervisor.Name) || resolvedSupervisorId;
+
+  return {
+    month: range.month,
+    date: range.date,
+    scope: {
+      role: "Management",
+      name: text(user.name),
+      delegates: delegates.length,
+    },
+    supervisor: {
+      supervisorId: resolvedSupervisorId,
+      supervisorName: resolvedSupervisorName,
+      delegates: delegates.length,
+    },
+    summary: sumMetrics(delegates),
+    delegates,
+    categories: buildCategoryRows(reports, targets, productSheet.rows),
+    teamDays: buildTeamDays(reports),
     shortages,
   };
 }
@@ -378,4 +467,4 @@ async function getInvoiceAnalysis(user, { month } = {}) {
   };
 }
 
-module.exports = { getOversightData, getDelegateDrilldown, getInvoiceAnalysis };
+module.exports = { getOversightData, getDelegateDrilldown, getSupervisorDrilldown, getInvoiceAnalysis };
