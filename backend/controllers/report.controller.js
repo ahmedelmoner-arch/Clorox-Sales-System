@@ -12,7 +12,7 @@ async function getReports(req, res) {
 async function addReport(req, res) {
   try {
     const data = await createReport(req.user, req.body);
-    return res.status(201).json({ success: true, message: "Report saved successfully", data });
+    return res.status(data.alreadySaved ? 200 : 201).json({ success: true, message: data.alreadySaved ? "Report was already saved" : "Report saved successfully", data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

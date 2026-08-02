@@ -8,6 +8,9 @@ backend/config/service-account.json
 node_modules/
 frontend/dist/
 public/
+!frontend/public/
+!frontend/public/manifest.webmanifest
+!frontend/public/service-worker.js
 coverage/
 *.log
 .vercel/

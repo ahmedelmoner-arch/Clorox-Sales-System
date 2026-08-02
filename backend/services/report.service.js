@@ -555,8 +555,24 @@ async function prepareReport(user, payload, reportSheet, { excludedReportId = ""
 
 async function createReport(user, payload) {
   const reportSheet = await getSheetRows(REPORT_SHEET);
+  const requestedReportId = safeText(payload?.reportId, 100);
+  if (requestedReportId) {
+    const matchingRecords = reportSheet.rows.filter((report) => String(report.UUID || "").trim() === requestedReportId);
+    if (matchingRecords.length) {
+      if (!matchingRecords.every((report) => matchesDelegate(report, user.delegateId || user.id))) {
+        throw new Error("This report identifier is already in use");
+      }
+      return {
+        reportId: requestedReportId,
+        records: matchingRecords,
+        sheetUpdate: { updatedRows: 0, updatedRange: "" },
+        vacationUpdate: null,
+        alreadySaved: true,
+      };
+    }
+  }
   const prepared = await prepareReport(user, payload, reportSheet);
-  const reportId = randomUUID();
+  const reportId = requestedReportId || randomUUID();
   const audit = reportAudit(user);
   const records = prepared.products.map((product, index) => buildRecord({
     user,

@@ -12,6 +12,7 @@ import "./styles/global.css";
 
 import { SessionProvider } from "./context/SessionContext";
 import { ThemeModeProvider, useThemeMode } from "./context/ThemeModeContext";
+import { OfflineProvider } from "./context/OfflineContext";
 
 const cacheRtl = createCache({
   key: "mui-rtl",
@@ -20,9 +21,13 @@ const cacheRtl = createCache({
 function ThemedApplication() {
   const { mode } = useThemeMode();
   const theme = useMemo(() => createAppTheme(mode), [mode]);
-  return <ThemeProvider theme={theme}><CssBaseline /><BrowserRouter><SessionProvider><App /></SessionProvider></BrowserRouter></ThemeProvider>;
+  return <ThemeProvider theme={theme}><CssBaseline /><BrowserRouter><SessionProvider><OfflineProvider><App /></OfflineProvider></SessionProvider></BrowserRouter></ThemeProvider>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode><CacheProvider value={cacheRtl}><ThemeModeProvider><ThemedApplication /></ThemeModeProvider></CacheProvider></React.StrictMode>
 );
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js").catch(() => undefined));
+}

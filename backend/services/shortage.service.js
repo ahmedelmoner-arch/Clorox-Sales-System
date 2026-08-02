@@ -169,10 +169,11 @@ async function getShortageAnalyticsForDelegateIds(delegateIds, { month } = {}) {
 
 async function createShortages(user, payload = {}) {
   const date = requireDate(payload.date);
-  const [branchSheet, productSheet, supervisorSheet] = await Promise.all([
+  const [branchSheet, productSheet, supervisorSheet, existingShortageSheet] = await Promise.all([
     getSheetRows("Branches"),
     getSheetRows("Products"),
     getSheetRows("Supervisors"),
+    getSheetRowsIfExists(SHORTAGE_SHEET),
   ]);
   const branchId = text(payload.branchId, 100);
   const branchName = text(payload.branchName, 200);
@@ -189,8 +190,17 @@ async function createShortages(user, payload = {}) {
   if (!submitted.length) throw new Error("Add at least one product shortage");
 
   const visitId = text(payload.reportId, 100) || randomUUID();
+  const existingRowsById = new Map(existingShortageSheet.rows.map((row) => [text(row.ShortageID, 100), row]).filter(([id]) => id));
   const seenProducts = new Set();
+  const seenShortageIds = new Set();
   const records = submitted.map((item) => {
+    const shortageId = text(item?.shortageId, 100) || randomUUID();
+    if (seenShortageIds.has(shortageId)) throw new Error("A shortage can only be submitted once per request");
+    seenShortageIds.add(shortageId);
+    const existing = existingRowsById.get(shortageId);
+    if (existing && !matchesDelegate(existing, user.delegateId || user.id)) {
+      throw new Error("This shortage identifier is already in use");
+    }
     const productId = text(item?.productId, 100);
     const product = products.get(productId);
     if (!product) throw new Error("One or more shortage products are invalid");
@@ -200,7 +210,7 @@ async function createShortages(user, payload = {}) {
     if (!SHORTAGE_TYPES.has(shortageType)) throw new Error("Choose a valid shortage type");
 
     return {
-      ShortageID: randomUUID(),
+      ShortageID: shortageId,
       VisitID: visitId,
       ReportID: text(payload.reportId, 100),
       Month: toMonth(date),
@@ -224,9 +234,15 @@ async function createShortages(user, payload = {}) {
     };
   });
 
-  const headers = await ensureSheetHeaders(SHORTAGE_SHEET, SHORTAGE_HEADERS);
-  const sheetUpdate = await appendSheetRows(SHORTAGE_SHEET, headers, records);
-  return { records, sheetUpdate };
+  const recordsToSave = records.filter((record) => !existingRowsById.has(record.ShortageID));
+  const sheetUpdate = recordsToSave.length
+    ? await appendSheetRows(SHORTAGE_SHEET, await ensureSheetHeaders(SHORTAGE_SHEET, SHORTAGE_HEADERS), recordsToSave)
+    : { updatedRows: 0, updatedRange: "" };
+  return {
+    records: records.map((record) => existingRowsById.get(record.ShortageID) || record),
+    sheetUpdate,
+    alreadySaved: recordsToSave.length === 0,
+  };
 }
 
 async function updateShortageStatus(user, shortageId, status) {

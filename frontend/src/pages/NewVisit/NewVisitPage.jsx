@@ -14,7 +14,9 @@ import { getVisitInit } from "../../services/visit.service";
 import { getReport, saveReport, updateReport } from "../../services/report.service";
 import { saveShortages } from "../../services/shortage.service";
 import { useSession } from "../../context/SessionContext";
+import { useOffline } from "../../context/OfflineContext";
 import { getCairoDate } from "../../utils/date";
+import { createOfflineId, isNetworkRequestError } from "../../utils/offline-storage";
 
 const typeLabels = { Sales: "مبيعات", Vouchers: "فاوتشر", Vacation: "إجازة" };
 const shortageTypeLabels = { OutOfStock: "غير موجود", LowStock: "كمية غير كافية", NotDisplayed: "غير معروض" };
@@ -33,6 +35,7 @@ function SalesValuePreview({ visible, value, pieces, month, missingPriceCount })
 
 export default function NewVisitPage() {
   const { user } = useSession();
+  const { isOnline, queueVisit } = useOffline();
   const [searchParams] = useSearchParams();
   const editReportId = searchParams.get("edit") || "";
   const isEditing = Boolean(editReportId);
@@ -92,7 +95,7 @@ export default function NewVisitPage() {
     setShortages({});
     setSelectedShortageProduct(null);
 
-    getVisitInit(form.date, form.branch)
+    getVisitInit(form.date, form.branch, user?.delegateId || user?.id)
       .then((data) => { if (!cancelled) setInit(data); })
       .catch((error) => {
         if (!cancelled) setFeedback({ open: true, severity: "error", message: error.response?.data?.message || "تعذر تحميل بيانات النموذج." });
@@ -100,7 +103,7 @@ export default function NewVisitPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [form.branch?.code, form.branch?.name, form.date]);
+  }, [form.branch?.code, form.branch?.name, form.date, user?.delegateId, user?.id]);
 
   useEffect(() => {
     if (!editingReports.length || !init) return;
@@ -148,6 +151,9 @@ export default function NewVisitPage() {
   const hasSales = saleProducts.length > 0;
   const hasShortages = shortageEntries.length > 0;
   const progress = targetPieces ? Math.round((actualPieces / targetPieces) * 100) : 0;
+  const cachedAt = init?.offlineCache?.savedAt
+    ? new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(new Date(init.offlineCache.savedAt))
+    : "";
 
   function updateForm(field, value) { setForm((current) => ({ ...current, [field]: value })); }
   function updateReportType(reportType) {
@@ -194,6 +200,13 @@ export default function NewVisitPage() {
     });
   }
 
+  function resetNewVisit() {
+    setEntries({});
+    setShortages({});
+    setSelectedShortageProduct(null);
+    setForm((current) => ({ ...current, branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" }));
+  }
+
   async function submit(event) {
     event.preventDefault();
     if (!form.reportType) return setFeedback({ open: true, severity: "warning", message: "اختاري نوع التقرير أولًا." });
@@ -215,29 +228,46 @@ export default function NewVisitPage() {
     if (!isVacation && !hasSales && !hasShortages) {
       return setFeedback({ open: true, severity: "warning", message: "سجلي مبيعات أو منتجًا ناقصًا واحدًا على الأقل قبل الحفظ." });
     }
+    if (isEditing && !isOnline) {
+      return setFeedback({ open: true, severity: "warning", message: "لا يمكن تعديل تقرير تم حفظه سابقًا بدون إنترنت. أعيدي الاتصال أولًا ثم احفظي التعديل." });
+    }
+
+    const products = saleProducts;
+    const offlineReportId = !isEditing && (isVacation || hasSales) ? createOfflineId() : "";
+    const queuedReportPayload = (isVacation || hasSales)
+      ? { date: form.date, reportType: form.reportType, branchId: isVacation ? "" : form.branch?.code, branchName: isVacation ? "" : form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products, reportId: offlineReportId }
+      : null;
+    const preparedShortages = shortageEntries.map((shortage) => ({ ...shortage, shortageId: createOfflineId() }));
+    const queuedShortagePayload = !isEditing && hasShortages
+      ? { date: form.date, branchId: form.branch?.code, branchName: form.branch?.name, supervisorId: form.supervisor?.id, reportId: offlineReportId, shortages: preparedShortages }
+      : null;
+
+    if (!isEditing && !isOnline) {
+      setSaving(true);
+      try {
+        await queueVisit({ reportPayload: queuedReportPayload, shortagePayload: queuedShortagePayload });
+        resetNewVisit();
+        setFeedback({ open: true, severity: "success", message: "تم حفظ التقرير على الجهاز. سيُرسل تلقائيًا فور عودة الإنترنت." });
+      } catch {
+        setFeedback({ open: true, severity: "error", message: "تعذر حفظ التقرير محليًا على الجهاز. تحققي من مساحة التخزين ثم حاولي مرة أخرى." });
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     let savedReport = null;
     try {
       setSaving(true);
-      const products = saleProducts;
-      const reportPayload = { date: form.date, reportType: form.reportType, branchId: isVacation ? "" : form.branch?.code, branchName: isVacation ? "" : form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products };
+      const reportPayload = { date: form.date, reportType: form.reportType, branchId: isVacation ? "" : form.branch?.code, branchName: isVacation ? "" : form.branch?.name, supervisorId: form.supervisor?.id, vacationType: form.vacationType, vouchers: form.vouchers, positiveConsumers: form.positiveConsumers, negativeConsumers: form.negativeConsumers, targetConsumers: form.targetConsumers, notes: form.notes, products, ...(!isEditing && offlineReportId ? { reportId: offlineReportId } : {}) };
       if (isVacation || hasSales) savedReport = isEditing ? await updateReport(editReportId, reportPayload) : await saveReport(reportPayload);
-      const savedShortages = !isEditing && hasShortages
-        ? await saveShortages({
-          date: form.date,
-          branchId: form.branch?.code,
-          branchName: form.branch?.name,
-          supervisorId: form.supervisor?.id,
-          reportId: savedReport?.reportId || "",
-          shortages: shortageEntries,
-        })
+      const savedShortages = queuedShortagePayload
+        ? await saveShortages({ ...queuedShortagePayload, reportId: queuedShortagePayload.reportId || savedReport?.reportId || "" })
         : null;
       if (isEditing) {
         setEditingReports(savedReport?.records || editingReports);
       } else {
-        setEntries({});
-        setShortages({});
-        setSelectedShortageProduct(null);
-        setForm((current) => ({ ...current, branch: null, supervisor: null, vacationType: "", vouchers: "", positiveConsumers: "", negativeConsumers: "", targetConsumers: "", notes: "" }));
+        resetNewVisit();
       }
       const confirmations = [];
       if (savedReport) {
@@ -252,6 +282,16 @@ export default function NewVisitPage() {
       }
       setFeedback({ open: true, severity: "success", message: `${confirmations.join(". ")}.` });
     } catch (error) {
+      if (!isEditing && isNetworkRequestError(error)) {
+        try {
+          await queueVisit({ reportPayload: queuedReportPayload, shortagePayload: queuedShortagePayload });
+          resetNewVisit();
+          setFeedback({ open: true, severity: "success", message: "تم حفظ التقرير على الجهاز بعد تعذر الاتصال بالخادم. سيُرسل تلقائيًا عند عودة الإنترنت." });
+          return;
+        } catch {
+          // Keep the entered data on screen when the browser cannot persist it locally.
+        }
+      }
       const prefix = savedReport ? "تم حفظ التقرير في Reports، لكن " : "";
       setFeedback({ open: true, severity: "error", message: `${prefix}${error.response?.data?.message || "تعذر حفظ البيانات. حاولي مرة أخرى."}` });
     } finally { setSaving(false); }
@@ -265,6 +305,7 @@ export default function NewVisitPage() {
     <AppShell hideHeader>
       <MobileScreenHeader title="تسجيل تقرير" subtitle="أضيفي بيانات الزيارة أو المبيعات" />
       {isEditing && <Alert severity="info" sx={{ mb: 2 }}>أنتِ الآن تعدّلين التقرير نفسه. سيُسجَّل نوع التعديل ووقته في Google Sheets.</Alert>}
+      {init?.offlineCache && <Alert severity="warning" sx={{ mb: 2 }}>أنتِ تعملين بآخر نسخة محفوظة من بيانات النموذج. آخر تحديث: {cachedAt || "غير معروف"}. تحققي من الاتصال لتحديث الفروع والمنتجات والأهداف.</Alert>}
       <SalesValuePreview visible={!isVacation && Boolean(form.reportType) && hasSales} value={totalSalesValue} pieces={actualPieces} month={init?.unitPriceMonth} missingPriceCount={selectedProductsWithoutPrice.length} />
       <Box component="form" onSubmit={submit}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1} sx={{ mb: 2.5 }}>
