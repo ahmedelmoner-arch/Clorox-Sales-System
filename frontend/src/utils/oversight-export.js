@@ -171,38 +171,54 @@ export function exportOversightCsv(data) {
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
-function invoiceRows(data) {
-  const headers = Array.isArray(data?.headers) ? data.headers : [];
-  return (data?.rows || []).map((row) => Object.fromEntries(
+function invoiceSources(data) {
+  if (Array.isArray(data?.sources)) return data.sources;
+  return [{ sheet: data?.sourceSheet || "Reports", headers: data?.headers || [], rows: data?.rows || [] }];
+}
+
+function sourceRows(source) {
+  const headers = Array.isArray(source?.headers) ? source.headers : [];
+  return (source?.rows || []).map((row) => Object.fromEntries(
     headers.map((header) => [header, row?.[header] ?? ""])
   ));
 }
 
-export async function exportInvoicesExcel(data) {
-  const rows = invoiceRows(data);
-  const headers = Array.isArray(data?.headers) ? data.headers : [];
-  const sheet = {
-    sheet: data?.sourceSheet || "Reports",
-    columns: headers.map(() => ({ width: 18 })),
+function invoicePeriod(data) {
+  return data?.date || data?.month || "الشهري";
+}
+
+function invoiceSheet(source) {
+  const headers = Array.isArray(source?.headers) ? source.headers : [];
+  const exportedHeaders = headers.length ? headers : ["لا توجد بيانات"];
+  const rows = sourceRows(source);
+  return {
+    sheet: source?.sheet || "بيانات",
+    columns: exportedHeaders.map(() => ({ width: 18 })),
     data: [
-      headers.map((header) => ({ value: header, fontWeight: "bold", backgroundColor: "#EAF3FF" })),
-      ...rows.map((row) => headers.map((header) => safeCell(row[header]))),
+      exportedHeaders.map((header) => ({ value: header, fontWeight: "bold", backgroundColor: "#EAF3FF" })),
+      ...rows.map((row) => exportedHeaders.map((header) => safeCell(row[header]))),
     ],
   };
-  await writeExcelFile([sheet], { fontFamily: "Arial", fontSize: 11 })
-    .toFile(`فواتير-Reports-${data?.month || "الشهري"}.xlsx`);
+}
+
+export async function exportInvoicesExcel(data) {
+  await writeExcelFile(invoiceSources(data).map(invoiceSheet), { fontFamily: "Arial", fontSize: 11 })
+    .toFile(`سحب-Reports-ProductShortages-${invoicePeriod(data)}.xlsx`);
 }
 
 export function exportInvoicesCsv(data) {
-  const headers = Array.isArray(data?.headers) ? data.headers : [];
-  const rows = invoiceRows(data);
-  const csv = `\uFEFF${headers.map(csvValue).join(",")}\n${rows.map((row) => headers.map((header) => csvValue(row[header])).join(",")).join("\n")}`;
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  link.href = url;
-  link.download = `فواتير-Reports-${data?.month || "الشهري"}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 100);
+  invoiceSources(data).forEach((source) => {
+    const sourceHeaders = Array.isArray(source?.headers) ? source.headers : [];
+    const headers = sourceHeaders.length ? sourceHeaders : ["لا توجد بيانات"];
+    const rows = sourceRows(source);
+    const csv = `\uFEFF${headers.map(csvValue).join(",")}\n${rows.map((row) => headers.map((header) => csvValue(row[header])).join(",")).join("\n")}`;
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    link.href = url;
+    link.download = `سحب-${source?.sheet || "بيانات"}-${invoicePeriod(data)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  });
 }

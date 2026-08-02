@@ -33,7 +33,7 @@ async function getSupervisorTeamDetails(req, res) {
 
 async function getInvoices(req, res) {
   try {
-    const data = await getInvoiceAnalysis(req.user, { month: req.query.month });
+    const data = await getInvoiceAnalysis(req.user, { month: req.query.month, date: req.query.date });
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });

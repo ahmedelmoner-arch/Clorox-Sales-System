@@ -22,7 +22,7 @@ export async function getSupervisorDrilldown(supervisorId, month, date) {
   return data.data;
 }
 
-export async function getInvoices(month) {
-  const { data } = await api.get("/oversight/invoices", { params: month ? { month } : undefined });
+export async function getInvoices(month, date) {
+  const { data } = await api.get("/oversight/invoices", { params: rangeParams(month, date) });
   return data.data;
 }

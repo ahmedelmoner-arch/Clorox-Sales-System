@@ -1,4 +1,4 @@
-const { currentMonth, getSheetRows, toDate, toMonth, toNumber } = require("./sheets.service");
+const { currentMonth, getSheetRows, getSheetRowsIfExists, toDate, toMonth, toNumber } = require("./sheets.service");
 const { canonicalRole } = require("../utils/roles");
 const { buildMonthlyAggregate, resolveReportsPricing } = require("./report.service");
 const { UNIT_PRICE_SHEET } = require("./unit-price.service");
@@ -444,26 +444,31 @@ async function getSupervisorDrilldown(user, { supervisorId, month, date } = {}) 
   };
 }
 
-async function getInvoiceAnalysis(user, { month } = {}) {
+async function getInvoiceAnalysis(user, { month, date } = {}) {
   if (canonicalRole(user?.role) !== "Management") {
     const error = new Error("You do not have permission to view invoices");
     error.statusCode = 403;
     throw error;
   }
 
-  const selectedMonth = /^\d{4}-\d{2}$/.test(toMonth(month)) ? toMonth(month) : currentMonth();
-  const reportSheet = await getSheetRows("Reports");
-  const rows = reportSheet.rows.filter((report) => (
-    rowMonth(report) === selectedMonth && text(report.ReportType) === "Vouchers"
+  const range = selectedRange({ month, date });
+  const [reportSheet, shortageSheet] = await Promise.all([
+    getSheetRows("Reports"),
+    getSheetRowsIfExists("ProductShortages"),
+  ]);
+  const reports = reportSheet.rows.filter((report) => matchesReportRange(report, range));
+  const shortages = shortageSheet.rows.filter((shortage) => (
+    rowMonth(shortage) === range.month && (!range.date || toDate(shortage.Date) === range.date)
   ));
 
   return {
-    month: selectedMonth,
-    sourceSheet: "Reports",
-    headers: reportSheet.headers,
-    rows,
-    rowCount: rows.length,
-    invoiceCount: new Set(rows.map((row) => reportKey(row))).size,
+    month: range.month,
+    date: range.date,
+    sources: [
+      { sheet: "Reports", headers: reportSheet.headers, rows: reports, rowCount: reports.length },
+      { sheet: "ProductShortages", headers: shortageSheet.headers, rows: shortages, rowCount: shortages.length },
+    ],
+    totalRows: reports.length + shortages.length,
   };
 }
 
