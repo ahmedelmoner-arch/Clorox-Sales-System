@@ -181,7 +181,8 @@
   },
   "scripts": {
   "start": "node server.js",
-  "dev": "nodemon server.js"
+  "dev": "nodemon server.js",
+  "sync:product-images": "node scripts/sync-product-images.js"
 },
   "keywords": [],
   "author": "",

@@ -121,8 +121,8 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <Typography variant="h5" fontWeight={900} sx={{ mb: 2.5 }}>حسابي</Typography>
-      <Card elevation={0} sx={{ maxWidth: 620, mx: "auto", border: "1px solid #e8edf7", borderRadius: 4 }}>
+      <Box className="delegate-screen-title"><Box><Typography className="delegate-screen-title__eyebrow">إدارة الحساب</Typography><Typography variant="h5" fontWeight={900}>الملف الشخصي</Typography></Box></Box>
+      <Card elevation={0} sx={{ maxWidth: 620, mx: "auto", overflow: "hidden", border: "1px solid #dce7f5", borderRadius: 4, boxShadow: "0 12px 28px rgba(27,75,148,.06)" }}>
         <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Stack alignItems="center" spacing={1.25}>
             <Box sx={{ position: "relative" }}>

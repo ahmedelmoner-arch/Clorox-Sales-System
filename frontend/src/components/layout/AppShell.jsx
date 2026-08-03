@@ -25,9 +25,9 @@ export default function AppShell({ children, hideHeader = false, hideNavigation 
   const name = user?.delegateName || user?.name || "مندوبة المبيعات";
 
   return (
-    <Box sx={{ minHeight: "100vh", pb: 12, bgcolor: "background.default", color: "text.primary", transition: "background-color .2s ease, color .2s ease" }}>
+    <Box className="clorox-app-shell" sx={{ minHeight: "100vh", pb: 12, bgcolor: "background.default", color: "text.primary", transition: "background-color .2s ease, color .2s ease" }}>
       {hideHeader && <Box sx={{ position: "fixed", zIndex: 40, top: { xs: 12, sm: 18 }, left: { xs: 12, sm: 18 } }}><ThemeModeToggle /></Box>}
-      {!hideHeader && <Box component="header" sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
+      {!hideHeader && <Box component="header" className="clorox-app-header" sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
         <Container maxWidth="lg" sx={{ minHeight: 74, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
           <Stack direction="row" alignItems="center" spacing={1.25}>
             <Box component="img" src="/clorox.png" alt="Clorox" sx={{ width: 48, height: 48, objectFit: "contain" }} />
@@ -48,7 +48,7 @@ export default function AppShell({ children, hideHeader = false, hideNavigation 
           {isOnline && pendingCount > 0 && <Button size="small" onClick={() => syncNow().catch(() => undefined)} disabled={syncing} sx={{ minWidth: 0, px: .8, whiteSpace: "nowrap" }}>مزامنة</Button>}
         </Stack>
       </Box>}
-      <Container maxWidth="lg" sx={{ pt: { xs: 2, sm: 3 } }}>{children}</Container>
+      <Container maxWidth="lg" className="clorox-app-content" sx={{ pt: { xs: 2, sm: 3 } }}>{children}</Container>
       {!hideNavigation && <AppNavigation />}
     </Box>
   );

@@ -273,6 +273,7 @@ module.exports = {
   ensureSheetHeaders,
   getSheetRows,
   getSheetRowsIfExists,
+  invalidateSheetCache,
   toDate,
   toMonth,
   toNumber,

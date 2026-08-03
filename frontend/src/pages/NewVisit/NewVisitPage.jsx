@@ -27,6 +27,29 @@ const isEnteredNonNegativeInteger = (value) => {
 };
 
 const priceMonthLabels = { Jan: "يناير", Feb: "فبراير", Mar: "مارس", Apr: "أبريل", May: "مايو", Jun: "يونيو", Jul: "يوليو", Aug: "أغسطس", Sep: "سبتمبر", Oct: "أكتوبر", Nov: "نوفمبر", Dec: "ديسمبر" };
+const productImageApiBase = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? "/api" : "http://localhost:5050/api");
+
+function localProductImagePath(value) {
+  const relativePath = String(value || "").trim().replace(/\\/g, "/");
+  const segments = relativePath.split("/");
+  if (!relativePath || /^[a-z][\w+.-]*:\/\//i.test(relativePath) || relativePath.startsWith("/") || !/\.(?:webp|png|jpe?g)$/i.test(relativePath) || segments.some((segment) => !segment || segment === "." || segment === "..")) return "";
+  return `/products/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
+}
+
+function productImageUrl(product) {
+  const source = String(product?.ImageUrl || product?.ProductImage || "").trim();
+  if (!source || !product?.ProductID) return "";
+  const localPath = localProductImagePath(source);
+  if (localPath) return localPath;
+  return `${productImageApiBase}/products/${encodeURIComponent(product.ProductID)}/image`;
+}
+
+function ProductThumbnail({ product, size = 56 }) {
+  const [failed, setFailed] = useState(false);
+  const imageUrl = productImageUrl(product);
+  if (!imageUrl || failed) return <Box sx={{ width: size, height: size, flexShrink: 0, display: "grid", placeItems: "center", color: "#1467d8" }}><Inventory2OutlinedIcon fontSize="small" /></Box>;
+  return <Box sx={{ width: size, height: size, flexShrink: 0, display: "grid", placeItems: "center" }}><Box component="img" src={imageUrl} alt={product?.ProductName || "شكل المنتج"} loading="lazy" decoding="async" onError={() => setFailed(true)} sx={{ width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 6px 6px rgba(14, 65, 133, .18))" }} /></Box>;
+}
 
 function SalesValuePreview({ visible, value, pieces, month, missingPriceCount }) {
   if (!visible) return null;
@@ -308,11 +331,16 @@ export default function NewVisitPage() {
       {init?.offlineCache && <Alert severity="warning" sx={{ mb: 2 }}>أنتِ تعملين بآخر نسخة محفوظة من بيانات النموذج. آخر تحديث: {cachedAt || "غير معروف"}. تحققي من الاتصال لتحديث الفروع والمنتجات والأهداف.</Alert>}
       <SalesValuePreview visible={!isVacation && Boolean(form.reportType) && hasSales} value={totalSalesValue} pieces={actualPieces} month={init?.unitPriceMonth} missingPriceCount={selectedProductsWithoutPrice.length} />
       <Box component="form" onSubmit={submit}>
+        <Box className="delegate-stepper" aria-label="مراحل تسجيل التقرير">
+          <Box className="delegate-step is-current" data-step="1"><Typography variant="caption" fontWeight={800}>بيانات الزيارة</Typography></Box>
+          <Box className="delegate-step" data-step="2"><Typography variant="caption" fontWeight={800}>المنتجات</Typography></Box>
+          <Box className="delegate-step" data-step="3"><Typography variant="caption" fontWeight={800}>مراجعة وحفظ</Typography></Box>
+        </Box>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1} sx={{ mb: 2.5 }}>
-          <Box><Typography variant="h5" fontWeight={900}>إضافة تقرير جديد</Typography><Typography color="text.secondary">أدخلي البيانات ثم احفظيها مباشرة في ملف التقارير.</Typography></Box>
+          <Box><Typography className="delegate-screen-title__eyebrow">الخطوة الأولى</Typography><Typography variant="h5" fontWeight={900}>بيانات الزيارة</Typography><Typography color="text.secondary">اختاري الفرع ونوع التقرير، ثم سجّلي المنتجات من المصدر المعتمد.</Typography></Box>
           <Chip icon={<Inventory2OutlinedIcon />} label={typeLabels[form.reportType] || "اختاري نوع التقرير"} color="primary" variant="outlined" />
         </Stack>
-        <Card elevation={0} sx={{ border: "1px solid #e8edf7", borderRadius: 4, mb: 2 }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        <Card elevation={0} sx={{ border: "1px solid #dce8f7", borderRadius: 4, mb: 2, boxShadow: "0 10px 24px rgba(27,75,148,.055)" }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography fontWeight={900} sx={{ mb: 2 }}>بيانات التقرير</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 2 }}>
             <TextField fullWidth type="date" label="التاريخ" value={form.date} onChange={(event) => updateForm("date", event.target.value)} InputLabelProps={{ shrink: true }} />
@@ -356,7 +384,7 @@ export default function NewVisitPage() {
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}><Typography fontWeight={900}>المنتجات</Typography><Typography variant="caption" color="text.secondary">اكتبي المحقق فقط للمنتجات التي تم تسجيلها</Typography></Stack>
           {Object.entries(productsByCategory).map(([category, products]) => {
             const totals = categoryTotals[category];
-            return <Accordion key={category} disableGutters elevation={0} sx={{ mb: 1, overflow: "hidden", borderRadius: 2.5, border: "none", "&:before": { display: "none" } }}>
+            return <Accordion key={category} disableGutters elevation={0} slotProps={{ transition: { unmountOnExit: true } }} sx={{ mb: 1, overflow: "hidden", borderRadius: 2.5, border: "none", "&:before": { display: "none" } }}>
               <AccordionSummary expandIcon={<ExpandMoreRoundedIcon sx={{ color: "#fff" }} />} sx={{ minHeight: 56, bgcolor: "#116df0", color: "#fff", "&.Mui-expanded": { minHeight: 56, bgcolor: "#075fdc" }, "& .MuiAccordionSummary-content": { my: 1, minWidth: 0 }, "& .MuiAccordionSummary-content.Mui-expanded": { my: 1 } }}>
                 <Box sx={{ width: "100%", minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.25 }}>
                   <Typography fontWeight={900} noWrap>{category} <Typography component="span" sx={{ opacity: .82 }} variant="caption">({products.length})</Typography></Typography>
@@ -375,11 +403,12 @@ export default function NewVisitPage() {
                   const achievement = target && actual !== "" ? Math.round((Number(actual) / target) * 100) : 0;
                   const salesValue = Number(actual || 0) * Number(product.UnitPrice || 0);
                   return <Box key={product.ProductID} sx={{ py: 1.1, px: { xs: 0, sm: .5 } }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1}><Typography fontWeight={800} noWrap>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" noWrap>كود: {product.ProductID}</Typography></Stack>
-                    <Box sx={{ mt: .9, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: .75, alignItems: "center" }}>
-                      <Box sx={{ textAlign: "center", py: .6, borderRadius: 1.75, bgcolor: "#f5f8fc" }}><Typography variant="caption" color="text.secondary" display="block">الهدف</Typography><Typography fontWeight={800}>{number(target)}</Typography></Box>
-                      <TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} sx={{ "& .MuiInputBase-root": { height: 42 }, "& .MuiInputBase-input": { textAlign: "center", py: .6 } }} />
-                      <Box sx={{ textAlign: "center", py: .6, borderRadius: 1.75, bgcolor: "#f2f8ff" }}><Typography variant="caption" color="text.secondary" display="block">الإنجاز</Typography><Typography color="primary.main" fontWeight={900}>{achievement}%</Typography></Box>
+                    <Box sx={{ minWidth: 0, textAlign: "right" }}><Typography fontWeight={800} noWrap>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" noWrap>كود: {product.ProductID}</Typography></Box>
+                    <Box sx={{ mt: .9, display: "grid", gridTemplateColumns: "minmax(60px, .66fr) minmax(72px, .8fr) 52px 56px", gap: .5, alignItems: "center", direction: "rtl" }}>
+                      <Box sx={{ textAlign: "center", py: .48, borderRadius: 1.55, bgcolor: "#f5f8fc" }}><Typography variant="caption" color="text.secondary" display="block">الهدف</Typography><Typography fontWeight={800}>{number(target)}</Typography></Box>
+                      <TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} sx={{ "& .MuiInputBase-root": { height: 40 }, "& .MuiInputBase-input": { textAlign: "center", py: .5 } }} />
+                      <Box sx={{ width: 52, textAlign: "center", py: .28, borderRadius: 1.35, bgcolor: "#f2f8ff" }}><Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: ".62rem", lineHeight: 1.15 }}>الإنجاز</Typography><Typography color="primary.main" fontWeight={900} sx={{ fontSize: ".86rem", lineHeight: 1.35 }}>{achievement}%</Typography></Box>
+                      <ProductThumbnail product={product} />
                     </Box>
                     <Box sx={{ mt: .8, pt: .8, borderTop: "1px dashed #dce7e8", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: .75 }}>
                       <Box sx={{ textAlign: "center" }}><Typography variant="caption" color="text.secondary" display="block">سعر الوحدة</Typography><Typography fontWeight={800}>{product.UnitPrice === "" || product.UnitPrice === undefined ? "غير محدد" : `${number(product.UnitPrice)} ج.م`}</Typography></Box>

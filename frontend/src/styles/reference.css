@@ -246,6 +246,107 @@
   background: rgba(255,255,255,.95) !important;
 }
 
+.clorox-app-shell {
+  background:
+    radial-gradient(circle at 90% 0%, rgba(52, 127, 243, .07), transparent 28%),
+    var(--mui-palette-background-default, #f5f8ff);
+}
+
+.clorox-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--mui-palette-background-paper, #fff) 92%, transparent) !important;
+  backdrop-filter: blur(18px);
+}
+
+.clorox-app-content {
+  padding-bottom: 30px;
+}
+
+.delegate-screen-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.delegate-screen-title__eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: #1b69d7;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.delegate-stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #dfe8f6;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #fff, #f7faff);
+  box-shadow: 0 8px 22px rgba(17, 72, 155, .06);
+}
+
+.delegate-step {
+  position: relative;
+  min-width: 0;
+  padding: 7px 6px;
+  border-radius: 15px;
+  text-align: center;
+  color: #71809a;
+}
+
+.delegate-step::before {
+  content: attr(data-step);
+  width: 25px;
+  height: 25px;
+  margin: 0 auto 5px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #cfdced;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.delegate-step.is-current {
+  color: #075ce0;
+  background: #eaf3ff;
+  font-weight: 900;
+}
+
+.delegate-step.is-current::before {
+  border-color: #0968e8;
+  color: #fff;
+  background: linear-gradient(145deg, #2387ff, #0754ca);
+  box-shadow: 0 5px 12px rgba(10, 96, 224, .25);
+}
+
+.reference-nav-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 58px;
+}
+
+.reference-nav-item.is-active::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  width: 24px;
+  height: 3px;
+  border-radius: 99px;
+  background: #0968e8;
+}
+
 .reference-add-button {
   margin-top: -36px !important;
   width: 64px !important;
@@ -279,6 +380,12 @@ html[data-theme="dark"] .clorox-login-input .MuiOutlinedInput-notchedOutline { b
 html[data-theme="dark"] .clorox-login-input .MuiInputAdornment-root { color: #8fbbff; }
 html[data-theme="dark"] .reference-nav { background: rgba(24,34,47,.96) !important; border-color: #2b3949 !important; }
 html[data-theme="dark"] .reference-add-button { border-color: #101720 !important; }
+html[data-theme="dark"] .clorox-app-shell { background: radial-gradient(circle at 90% 0%, rgba(69, 134, 242, .1), transparent 30%), #101720; }
+html[data-theme="dark"] .clorox-app-header { background: rgba(24,34,47,.92) !important; }
+html[data-theme="dark"] .delegate-stepper { border-color: #2e4057; background: linear-gradient(135deg, #18222f, #152235); }
+html[data-theme="dark"] .delegate-step { color: #aebdce; }
+html[data-theme="dark"] .delegate-step::before { border-color: #3c4f67; background: #111b27; }
+html[data-theme="dark"] .delegate-step.is-current { background: #193b69; color: #a9ceff; }
 
 @media (max-width: 600px) {
   .clorox-login { gap: 17px; padding: 76px 14px 30px; }
