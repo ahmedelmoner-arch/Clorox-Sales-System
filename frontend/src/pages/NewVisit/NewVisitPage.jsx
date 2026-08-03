@@ -403,11 +403,15 @@ export default function NewVisitPage() {
                   const achievement = target && actual !== "" ? Math.round((Number(actual) / target) * 100) : 0;
                   const salesValue = Number(actual || 0) * Number(product.UnitPrice || 0);
                   return <Box key={product.ProductID} sx={{ py: 1.1, px: { xs: 0, sm: .5 } }}>
-                    <Box sx={{ minWidth: 0, textAlign: "right" }}><Typography fontWeight={800} noWrap>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" noWrap>كود: {product.ProductID}</Typography></Box>
-                    <Box sx={{ mt: .9, display: "grid", gridTemplateColumns: "minmax(60px, .66fr) minmax(72px, .8fr) 52px 56px", gap: .5, alignItems: "center", direction: "rtl" }}>
-                      <Box sx={{ textAlign: "center", py: .48, borderRadius: 1.55, bgcolor: "#f5f8fc" }}><Typography variant="caption" color="text.secondary" display="block">الهدف</Typography><Typography fontWeight={800}>{number(target)}</Typography></Box>
-                      <TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} sx={{ "& .MuiInputBase-root": { height: 40 }, "& .MuiInputBase-input": { textAlign: "center", py: .5 } }} />
-                      <Box sx={{ width: 52, textAlign: "center", py: .28, borderRadius: 1.35, bgcolor: "#f2f8ff" }}><Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: ".62rem", lineHeight: 1.15 }}>الإنجاز</Typography><Typography color="primary.main" fontWeight={900} sx={{ fontSize: ".86rem", lineHeight: 1.35 }}>{achievement}%</Typography></Box>
+                    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 56px", gap: 1, alignItems: "start", direction: "rtl" }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Box sx={{ minWidth: 0, textAlign: "right" }}><Typography fontWeight={800} noWrap>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" noWrap>كود: {product.ProductID}</Typography></Box>
+                        <Box sx={{ mt: .9, display: "grid", gridTemplateColumns: "minmax(60px, .66fr) minmax(72px, .8fr) 52px", gap: .5, alignItems: "center", direction: "rtl" }}>
+                          <Box sx={{ textAlign: "center", py: .48, borderRadius: 1.55, bgcolor: "#f5f8fc" }}><Typography variant="caption" color="text.secondary" display="block">الهدف</Typography><Typography fontWeight={800}>{number(target)}</Typography></Box>
+                          <TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} sx={{ "& .MuiInputBase-root": { height: 40 }, "& .MuiInputBase-input": { textAlign: "center", py: .5 } }} />
+                          <Box sx={{ width: 52, textAlign: "center", py: .28, borderRadius: 1.35, bgcolor: "#f2f8ff" }}><Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: ".62rem", lineHeight: 1.15 }}>الإنجاز</Typography><Typography color="primary.main" fontWeight={900} sx={{ fontSize: ".86rem", lineHeight: 1.35 }}>{achievement}%</Typography></Box>
+                        </Box>
+                      </Box>
                       <ProductThumbnail product={product} />
                     </Box>
                     <Box sx={{ mt: .8, pt: .8, borderTop: "1px dashed #dce7e8", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: .75 }}>

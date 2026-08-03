@@ -69,6 +69,12 @@ function variantOf(name) {
 }
 
 function categoryCandidates(row, images) {
+  const exactName = normalize(row.ProductName);
+  const exactMatches = exactName ? images.filter((file) => stem(file) === exactName) : [];
+  // The artwork is now deliberately named after the Products sheet. Prefer this
+  // deterministic match before using the legacy category-based fallback below.
+  if (exactMatches.length) return exactMatches;
+
   const category = normalize(row.Category).replace(/\s/g, "");
   const name = normalize(row.ProductName);
   const volume = volumeOf(row.ProductName);
