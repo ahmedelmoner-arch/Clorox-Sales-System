@@ -219,7 +219,9 @@ function buildSupervisorAssignments(delegates, supervisors, reports) {
     const direct = supervisorIds.get(key(delegate.SupervisorCode));
     const reported = [...(reportedAssignments.get(delegateId) || new Map()).entries()]
       .sort((left, right) => right[1] - left[1])[0]?.[0];
-    return [delegateId, direct || reported || text(delegate.SupervisorCode)];
+    // Reports are the source of truth for an active supervisor team. The
+    // Delegates sheet remains a fallback for a new delegate with no reports.
+    return [delegateId, reported || direct || text(delegate.SupervisorCode)];
   }));
 }
 
@@ -257,12 +259,13 @@ function scopedDelegates(user, delegates, supervisorAssignments, reports, target
   }
 
   const resolvedSupervisorId = supervisorId || key(user.supervisorId);
-  delegates
-    .filter((delegate) => key(supervisorAssignments.get(text(delegate.DelegateID))) === resolvedSupervisorId)
-    .forEach((delegate) => addDelegate(delegate.DelegateID, delegate));
+  const delegatesWithReports = new Set(reports.map((report) => text(report.DelegateID)).filter(Boolean));
   reports
     .filter((report) => key(report.SupervisorsID) === resolvedSupervisorId)
     .forEach((report) => addDelegate(report.DelegateID, report));
+  delegates
+    .filter((delegate) => !delegatesWithReports.has(text(delegate.DelegateID)) && key(supervisorAssignments.get(text(delegate.DelegateID))) === resolvedSupervisorId)
+    .forEach((delegate) => addDelegate(delegate.DelegateID, delegate));
   return [...selected.values()];
 }
 
@@ -272,7 +275,9 @@ function buildSupervisorRows(user, supervisors, delegateRows) {
     ? supervisors.map((supervisor) => ({ supervisorId: text(supervisor.SupervisorsID), supervisorName: text(supervisor.SupervisorName) || text(supervisor.Name) }))
     : [{ supervisorId: text(user.supervisorId), supervisorName: text(user.name) }];
   const rows = definitions.map((supervisor) => {
-    const team = delegateRows.filter((delegate) => key(delegate.supervisorCode) === key(supervisor.supervisorId));
+    const team = role === "Supervisor"
+      ? delegateRows
+      : delegateRows.filter((delegate) => key(delegate.supervisorCode) === key(supervisor.supervisorId));
     return withAchievement({
       supervisorId: supervisor.supervisorId,
       supervisorName: supervisor.supervisorName || "غير محدد",
@@ -305,7 +310,7 @@ async function getOversightData(user, { month, date } = {}) {
   const team = scopedDelegates(user, delegateSheet.rows, supervisorAssignments, reportSheet.rows, targetSheet.rows, supervisorId);
   const teamIds = new Set(team.map((delegate) => text(delegate.DelegateID)));
   const reports = resolveReportsPricing(reportSheet.rows.filter((report) => matchesReportRange(report, range) && (
-    role === "Management" || teamIds.has(text(report.DelegateID)) || key(report.SupervisorsID) === supervisorId
+    role === "Management" || key(report.SupervisorsID) === supervisorId
   )), productSheet.rows, unitPriceSheet.rows);
   const targets = targetSheet.rows.filter((target) => teamIds.has(text(target.DelegateID)) && matchesTargetRange(target, range));
   const delegates = buildDelegateMetrics(team, reports, targets, supervisorAssignments).sort((left, right) => right.actualPieces - left.actualPieces || left.delegateName.localeCompare(right.delegateName, "ar"));
@@ -349,7 +354,9 @@ async function getDelegateDrilldown(user, { delegateId, month, date } = {}) {
     throw error;
   }
 
-  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => key(report.DelegateID) === key(delegate.DelegateID) && matchesReportRange(report, range)), productSheet.rows, unitPriceSheet.rows);
+  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => key(report.DelegateID) === key(delegate.DelegateID)
+    && matchesReportRange(report, range)
+    && (canonicalRole(user.role) === "Management" || key(report.SupervisorsID) === supervisorId)), productSheet.rows, unitPriceSheet.rows);
   const targets = targetSheet.rows.filter((target) => key(target.DelegateID) === key(delegate.DelegateID) && matchesTargetRange(target, range));
   const summary = buildMonthlyAggregate(reports, targets, productSheet.rows, delegate.DelegateID, range.month);
   const shortages = await getShortageAnalyticsForDelegateIds(new Set([delegate.DelegateID]), range);
@@ -400,17 +407,27 @@ async function getSupervisorDrilldown(user, { supervisorId, month, date } = {}) 
   }
 
   const supervisorAssignments = buildSupervisorAssignments(delegateSheet.rows, supervisorSheet.rows, reportSheet.rows);
-  const allDelegates = scopedDelegates(user, delegateSheet.rows, supervisorAssignments, reportSheet.rows, targetSheet.rows, "");
   const knownSupervisorIds = new Set(supervisorSheet.rows.map((row) => key(row.SupervisorsID)).filter(Boolean));
-  const team = allDelegates.filter((delegate) => {
-    const assignedSupervisor = key(supervisorAssignments.get(text(delegate.DelegateID)));
-    return isUnassigned
-      ? !knownSupervisorIds.has(assignedSupervisor)
-      : assignedSupervisor === key(supervisor.SupervisorsID);
-  });
+  const delegatesWithReports = new Set(reportSheet.rows.map((report) => text(report.DelegateID)).filter(Boolean));
+  const team = scopedDelegates(user, delegateSheet.rows, supervisorAssignments, reportSheet.rows, targetSheet.rows, "")
+    .filter((delegate) => {
+      const delegateId = text(delegate.DelegateID);
+      const isReportedForSupervisor = reportSheet.rows.some((report) => text(report.DelegateID) === delegateId && (
+        isUnassigned
+          ? !knownSupervisorIds.has(key(report.SupervisorsID))
+          : key(report.SupervisorsID) === key(supervisor.SupervisorsID)
+      ));
+      return isReportedForSupervisor || (!delegatesWithReports.has(delegateId) && (
+        isUnassigned
+          ? !knownSupervisorIds.has(key(supervisorAssignments.get(delegateId)))
+          : key(supervisorAssignments.get(delegateId)) === key(supervisor.SupervisorsID)
+      ));
+    });
   const teamIds = new Set(team.map((delegate) => text(delegate.DelegateID)));
-  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => (
-    teamIds.has(text(report.DelegateID)) && matchesReportRange(report, range)
+  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => matchesReportRange(report, range) && (
+    isUnassigned
+      ? !knownSupervisorIds.has(key(report.SupervisorsID))
+      : key(report.SupervisorsID) === key(supervisor.SupervisorsID)
   )), productSheet.rows, unitPriceSheet.rows);
   const targets = targetSheet.rows.filter((target) => (
     teamIds.has(text(target.DelegateID)) && matchesTargetRange(target, range)
