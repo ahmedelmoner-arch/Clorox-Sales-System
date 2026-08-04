@@ -96,8 +96,12 @@ app.use("/api", (req, res) => {
 });
 
 app.use((error, req, res, next) => {
-  console.error("Unhandled API error:", error);
   if (res.headersSent) return next(error);
+  if (error.message === "Origin is not allowed by CORS") {
+    console.warn("CORS rejection:", req.get("origin") || "no origin");
+    return res.status(403).json({ success: false, message: "Origin is not allowed" });
+  }
+  console.error("Unhandled API error:", error);
   return res.status(error.statusCode || 500).json({
     success: false,
     message: "Unexpected API error",
