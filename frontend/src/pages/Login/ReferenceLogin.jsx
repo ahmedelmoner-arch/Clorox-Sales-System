@@ -103,14 +103,14 @@ export default function ReferenceLogin() {
         className="clorox-login-card"
         sx={{
           width: "min(100%, 860px)",
-          px: { xs: 2.25, sm: 6, md: 8.5 },
-          py: { xs: 4, sm: 5.25, md: 6 },
-          borderRadius: { xs: "38px", sm: "54px" },
+          px: { xs: 1.75, sm: 6, md: 8.5 },
+          py: { xs: 2.25, sm: 5.25, md: 6 },
+          borderRadius: { xs: "30px", sm: "54px" },
           bgcolor: isDark ? "rgba(24,34,47,.98)" : "rgba(255,255,255,.97)",
           borderColor: isDark ? "rgba(104,151,210,.34)" : "rgba(255,255,255,.86)",
         }}
       >
-        <Stack alignItems="center" spacing={{ xs: 1, sm: 1.35 }}>
+        <Stack alignItems="center" spacing={{ xs: 0.5, sm: 1.35 }}>
           <Box component="img" src="/clorox.png" alt="Clorox" className="clorox-login-logo" />
           <Typography className="clorox-login-title" sx={{ color: isDark ? "#edf4ff" : "#132d61" }}>
             تطبيق مبيعات المندوبات
@@ -122,7 +122,7 @@ export default function ReferenceLogin() {
           </Stack>
         </Stack>
 
-        <Stack spacing={{ xs: 2, sm: 2.35 }} sx={{ mt: { xs: 3.25, sm: 4.25 } }}>
+        <Stack spacing={{ xs: 1.25, sm: 2.35 }} sx={{ mt: { xs: 2, sm: 4.25 } }}>
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
 
           <ToggleButtonGroup

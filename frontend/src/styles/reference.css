@@ -1,5 +1,6 @@
 .clorox-login {
   min-height: 100svh;
+  box-sizing: border-box;
   position: relative;
   isolation: isolate;
   display: flex;
@@ -8,7 +9,8 @@
   justify-content: center;
   gap: 22px;
   padding: 76px 20px 52px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(ellipse at 54% -16%, rgba(200,241,255,.72), transparent 41%),
     radial-gradient(circle at 0 47%, rgba(0,102,240,.65), transparent 29%),
@@ -388,20 +390,41 @@ html[data-theme="dark"] .delegate-step::before { border-color: #3c4f67; backgrou
 html[data-theme="dark"] .delegate-step.is-current { background: #193b69; color: #a9ceff; }
 
 @media (max-width: 600px) {
-  .clorox-login { gap: 17px; padding: 76px 14px 30px; }
+  .clorox-login { justify-content: flex-start; gap: 10px; padding: 70px 12px 16px; }
   .clorox-login-card { box-shadow: 0 20px 45px rgba(0,55,144,.2); }
   .clorox-login-theme-toggle { top: 16px; left: 16px; }
   .clorox-login-theme-toggle button { width: 46px; height: 46px; }
   .clorox-login-dot-grid { top: 20px; right: -3%; width: 170px; height: 118px; background-size: 22px 22px; }
   .clorox-login-glow-top { width: 270px; height: 270px; top: 146px; left: -207px; border-width: 40px; }
-  .clorox-role-switcher { border-radius: 18px; }
-  .clorox-role-switcher .MuiToggleButton-root { min-height: 68px; gap: 5px; }
-  .clorox-role-switcher .MuiToggleButton-root svg { font-size: 25px; }
-  .clorox-login-role-icon { width: 94px; height: 94px; border-width: 9px; }
-  .clorox-login-role-icon svg { font-size: 48px; }
-  .clorox-login-input .MuiOutlinedInput-root { min-height: 66px; border-radius: 18px; }
-  .clorox-login-input .MuiInputBase-input { font-size: 18px; }
-  .clorox-login-submit { min-height: 64px; border-radius: 18px; }
+  .clorox-login-logo { width: 116px; max-height: 64px; }
+  .clorox-login-title { font-size: clamp(22px, 6.8vw, 28px); }
+  .clorox-login-subtitle { font-size: clamp(13px, 4vw, 17px); }
+  .clorox-role-switcher { border-radius: 16px; }
+  .clorox-role-switcher .MuiToggleButton-root { min-height: 56px; gap: 4px; font-size: 14px; }
+  .clorox-role-switcher .MuiToggleButton-root svg { font-size: 22px; }
+  .clorox-login-role-icon { width: 74px; height: 74px; margin: 1px auto; border-width: 7px; }
+  .clorox-login-role-icon svg { font-size: 38px; }
+  .clorox-login-input .MuiOutlinedInput-root { min-height: 56px; border-radius: 16px; }
+  .clorox-login-input .MuiInputLabel-root { font-size: 14px; }
+  .clorox-login-input .MuiInputBase-input { font-size: 16px; }
+  .clorox-login-input .MuiInputAdornment-root svg { font-size: 24px; }
+  .clorox-login-submit { min-height: 56px; border-radius: 16px; font-size: 20px; }
   .clorox-login-options { align-items: flex-start; }
   .clorox-login-options > .MuiTypography-root { max-width: 53%; font-size: 12px; }
+  .clorox-login-options .MuiFormControlLabel-label { font-size: 13px; }
+  .clorox-login-footer { font-size: 12px; }
+}
+
+@media (max-width: 600px) and (max-height: 700px) {
+  .clorox-login { gap: 7px; padding: 62px 10px 10px; }
+  .clorox-login-card { padding-block: 12px !important; }
+  .clorox-login-logo { width: 96px; max-height: 50px; }
+  .clorox-login-title { font-size: 20px; }
+  .clorox-login-subtitle { font-size: 12px; }
+  .clorox-role-switcher .MuiToggleButton-root { min-height: 50px; font-size: 13px; }
+  .clorox-login-role-icon { width: 64px; height: 64px; border-width: 6px; }
+  .clorox-login-role-icon svg { font-size: 32px; }
+  .clorox-login-input .MuiOutlinedInput-root { min-height: 50px; }
+  .clorox-login-submit { min-height: 50px; font-size: 18px; }
+  .clorox-login-footer { font-size: 11px; }
 }
