@@ -6,6 +6,7 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import PictureAsPdfRoundedIcon from "@mui/icons-material/PictureAsPdfRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import ZoomInRoundedIcon from "@mui/icons-material/ZoomInRounded";
 import AppShell from "../../components/layout/AppShell";
 import MobileScreenHeader from "../../components/layout/MobileScreenHeader";
 import { getProductGuide } from "../../services/product-guide.service";
@@ -17,11 +18,11 @@ function productImageUrl(product) {
   return product.imagePath || `${productImageApiBase}/products/${encodeURIComponent(product.productId)}/image`;
 }
 
-function ProductArtwork({ product, height = 280 }) {
+function ProductArtwork({ product, height = { xs: 230, sm: 280 }, expanded = false }) {
   const [failed, setFailed] = useState(false);
   const source = productImageUrl(product);
   if (!source || failed) return <Box sx={{ height, display: "grid", placeItems: "center", color: "#1767db" }}><AutoStoriesRoundedIcon sx={{ fontSize: 46, opacity: .65 }} /></Box>;
-  return <Box sx={{ height, display: "grid", placeItems: "center", overflow: "hidden" }}><Box component="img" src={source} alt={product.productName || "شكل المنتج"} loading="lazy" onError={() => setFailed(true)} sx={{ width: "100%", height: "100%", objectFit: "contain", p: 0, filter: "drop-shadow(0 12px 12px rgba(14, 65, 133, .18))" }} /></Box>;
+  return <Box sx={{ height, minHeight: 0, display: "grid", placeItems: "center", overflow: "hidden", px: expanded ? 0 : { xs: 1.5, sm: 2.5 }, py: expanded ? 0 : 1.5, bgcolor: expanded ? "transparent" : "#f7faff" }}><Box component="img" src={source} alt={product.productName || "شكل المنتج"} loading="lazy" decoding="async" onError={() => setFailed(true)} sx={{ display: "block", width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%", objectFit: "contain", filter: "drop-shadow(0 12px 12px rgba(14, 65, 133, .18))" }} /></Box>;
 }
 
 function withPdfPage(url, page) {
@@ -35,14 +36,19 @@ function BulletList({ title, items }) {
 }
 
 function ProductDialog({ product, onClose }) {
+  const [artworkOpen, setArtworkOpen] = useState(false);
   if (!product) return null;
   const pdfUrl = withPdfPage(product.pdfUrl, product.pdfPage);
-  return <Dialog open onClose={onClose} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
-    <Box sx={{ mx: 3, mt: 2.25, overflow: "hidden" }}><ProductArtwork product={product} height={360} /></Box>
+  return <><Dialog open onClose={onClose} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
+    <Box sx={{ mx: { xs: 2, sm: 3 }, mt: 2.25, position: "relative", overflow: "hidden", borderRadius: 2.5 }}><ProductArtwork product={product} height={{ xs: 280, sm: 360 }} /><Button size="small" variant="contained" startIcon={<ZoomInRoundedIcon />} onClick={() => setArtworkOpen(true)} sx={{ position: "absolute", left: 12, bottom: 12, fontWeight: 800, boxShadow: "0 5px 15px rgba(14, 65, 133, .22)" }}>عرض الصورة كاملة</Button></Box>
     <DialogTitle sx={{ pb: 1.5 }}><Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}><Box><Typography fontWeight={900}>{product.productName}</Typography><Stack direction="row" spacing={.7} sx={{ mt: .8 }}><Chip label={product.category} size="small" color="primary" variant="outlined" />{product.productId && <Chip label={`كود ${product.productId}`} size="small" variant="outlined" />}</Stack></Box><IconButton aria-label="إغلاق" onClick={onClose}><CloseRoundedIcon /></IconButton></Stack></DialogTitle>
     <DialogContent dividers>{product.shortDescription && <Typography color="text.secondary">{product.shortDescription}</Typography>}<BulletList title="أهم المميزات" items={product.keyBenefits} /><BulletList title="الاستخدام" items={product.usage} /></DialogContent>
     <DialogActions sx={{ px: 3, py: 2 }}>{pdfUrl && <Button component="a" href={pdfUrl} target="_blank" rel="noreferrer" variant="contained" endIcon={<OpenInNewRoundedIcon />}>فتح الكتيب{product.pdfPage ? ` - صفحة ${product.pdfPage.toLocaleString("ar-EG")}` : ""}</Button>}<Button onClick={onClose}>إغلاق</Button></DialogActions>
-  </Dialog>;
+  </Dialog>
+  <Dialog fullScreen open={artworkOpen} onClose={() => setArtworkOpen(false)} PaperProps={{ sx: { bgcolor: "rgba(6, 25, 55, .98)" } }}>
+    <IconButton aria-label="إغلاق الصورة" onClick={() => setArtworkOpen(false)} sx={{ position: "absolute", zIndex: 1, top: { xs: 14, sm: 24 }, left: { xs: 14, sm: 24 }, color: "#fff", bgcolor: "rgba(255,255,255,.16)", "&:hover": { bgcolor: "rgba(255,255,255,.26)" } }}><CloseRoundedIcon /></IconButton>
+    <Box sx={{ width: "100%", height: "100%", p: { xs: 3, sm: 6 }, boxSizing: "border-box" }}><ProductArtwork product={product} height="100%" expanded /></Box>
+  </Dialog></>;
 }
 
 export default function ProductGuidePage() {
