@@ -46,8 +46,9 @@ function key(value) {
   return text(value, 100).toUpperCase();
 }
 
+const { matchesDelegateRow } = require("./target.service");
 function matchesDelegate(row, delegateId) {
-  return text(row.DelegateID, 100) === text(delegateId, 100);
+  return matchesDelegateRow(row, delegateId);
 }
 
 function requireDate(value) {

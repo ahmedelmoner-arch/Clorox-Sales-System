@@ -12,6 +12,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const { apiRateLimit } = require("./middleware/api-rate-limit.middleware");
+const MOCK_SHEETS = String(process.env.MOCK_SHEETS || "").toLowerCase() === "true";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -74,6 +75,115 @@ app.get("/api/health", (req, res) => {
     message: ready ? "Clorox Sales API is Running" : "Clorox Sales API configuration is incomplete",
   });
 });
+
+// Development-only debug routes for local mock verification
+{
+  const fs = require("fs");
+  const path = require("path");
+  app.get("/api/debug/targets", async (req, res) => {
+    try {
+      const mockPath = path.join(__dirname, "mock-sheets", "Targets.json");
+      if (fs.existsSync(mockPath)) {
+        const content = JSON.parse(fs.readFileSync(mockPath, "utf8"));
+        return res.json({ success: true, data: content });
+      }
+
+      // fallback to real sheet service if mock file missing
+      const { getSheetRows } = require("./services/sheets.service");
+      const data = await getSheetRows("Targets");
+      return res.json({ success: true, data });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  });
+  app.get("/api/debug/visit-init", async (req, res) => {
+    try {
+      const visitService = require("./services/visit.service");
+      const user = { delegateId: req.query.delegateId || req.query.delegate || "D001", id: req.query.id || "", name: req.query.name || "" };
+      const data = await visitService.getInitData(user, { date: req.query.date, branchId: req.query.branchId, branchName: req.query.branchName });
+      return res.json({ success: true, data });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  });
+  app.get("/api/debug/targets-filter", async (req, res) => {
+    try {
+      const { getSheetRows } = require("./services/sheets.service");
+      const { buildProductNameToIdMap, getTargetRowProductTargets, getTargetRowTotalPieces, matchesDelegateRow, normalizeProductName, isKnownTargetField } = require("./services/target.service");
+      let productSheet;
+      let targetSheet;
+      let source = "google";
+      const useMock = MOCK_SHEETS || String(req.query.useMock || req.query.mock || "").toLowerCase() === "true";
+      const mockProductPath = path.join(__dirname, "mock-sheets", "Products.json");
+      const mockTargetPath = path.join(__dirname, "mock-sheets", "Targets.json");
+
+      if (useMock && fs.existsSync(mockProductPath)) {
+        productSheet = JSON.parse(fs.readFileSync(mockProductPath, "utf8"));
+        source = "mock";
+      }
+      if (!productSheet) {
+        productSheet = await getSheetRows("Products");
+      }
+
+      if (useMock && fs.existsSync(mockTargetPath)) {
+        targetSheet = JSON.parse(fs.readFileSync(mockTargetPath, "utf8"));
+        source = "mock";
+      }
+      if (!targetSheet) {
+        targetSheet = await getSheetRows("Targets");
+      }
+
+      const productNameToId = buildProductNameToIdMap(productSheet.rows);
+      const user = { delegateId: req.query.delegateId || req.query.delegate || "D001", id: req.query.id || "", name: req.query.name || "" };
+      const date = req.query.date || "";
+      const branch = { BranchID: req.query.branchId, BranchName: req.query.branchName };
+
+      const matched = (targetSheet.rows || []).map((target) => {
+        const headerMatches = [];
+        Object.entries(target).forEach(([key, value]) => {
+          const header = String(key || "").trim();
+          if (!header || isKnownTargetField(header)) return;
+          if (value == null || String(value).trim() === "") return;
+          const normalizedName = normalizeProductName(header);
+          let matchedId = productNameToId.get(header) || productNameToId.get(header.toLowerCase()) || productNameToId.get(normalizedName);
+          if (!matchedId) {
+            const tokens = normalizedName.split(" ").filter(Boolean);
+            let best = { score: 0, id: null };
+            for (const [knownKey, knownId] of productNameToId.entries()) {
+              if (!knownKey) continue;
+              const knownTokens = knownKey.split(" ").filter(Boolean);
+              const intersection = tokens.filter((token) => knownTokens.includes(token)).length;
+              if (!intersection) continue;
+              const score = intersection / Math.max(tokens.length, knownTokens.length);
+              if (score > best.score) best = { score, id: knownId };
+            }
+            if (best.score >= 0.4) matchedId = best.id;
+          }
+          headerMatches.push({ header, normalizedName, matchedId: matchedId || null, value: String(value) });
+        });
+
+        const matchesDelegate = matchesDelegateRow(target, user);
+        const dateValue = target.Date || target.Month || "";
+        const sameDate = dateValue ? (String(dateValue).startsWith(date) || String(dateValue) === date) : true;
+        const matchesBranch = branch.BranchName ? String(target.BranchName || "").trim() === String(branch.BranchName || "").trim() : true;
+        const matches = matchesDelegate && sameDate && matchesBranch;
+        return {
+          row: target,
+          matchesDelegate,
+          sameDate,
+          matchesBranch,
+          matches,
+          productTargets: Object.fromEntries(getTargetRowProductTargets(target, productNameToId)),
+          headerMatches,
+        };
+      }).filter((item) => item.matches);
+
+      return res.json({ success: true, source, productNameToIdKeys: [...productNameToId.keys()], matched });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  });
+}
 
 app.use("/api", apiRateLimit);
 app.use("/api/auth", authRoutes);

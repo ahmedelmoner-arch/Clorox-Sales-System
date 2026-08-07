@@ -1,9 +1,10 @@
 const { currentMonth, getSheetRows, getSheetRowsIfExists, toDate, toMonth, toNumber } = require("./sheets.service");
 const { canonicalRole } = require("../utils/roles");
-const { buildMonthlyAggregate, resolveReportsPricing } = require("./report.service");
+const { buildMonthlyAggregate, resolveReportTargetValues, resolveReportsPricing } = require("./report.service");
 const { UNIT_PRICE_SHEET } = require("./unit-price.service");
 const { createProductOrder } = require("../utils/product-order");
 const { getShortageAnalyticsForDelegateIds } = require("./shortage.service");
+const { buildProductNameToIdMap, getTargetRowProductTargets, getTargetRowTotalPieces } = require("./target.service");
 
 function text(value) {
   return String(value ?? "").trim();
@@ -32,7 +33,11 @@ function matchesReportRange(row, range) {
 }
 
 function matchesTargetRange(row, range) {
-  return rowMonth(row) === range.month && (!range.date || toDate(row.Date) === range.date);
+  const rowDate = toDate(row.Date);
+  if (rowDate) {
+    return rowDate === range.date || (!range.date && rowMonth(row) === range.month);
+  }
+  return rowMonth(row) === range.month;
 }
 
 function branchKey(row) {
@@ -81,6 +86,7 @@ function sumMetrics(rows) {
 
 function buildCategoryRows(reports, targets, products) {
   const catalog = new Map(products.map((product) => [text(product.ProductID), product]));
+  const productNameToId = buildProductNameToIdMap(products);
   const productOrder = createProductOrder(products);
   const categories = new Map();
 
@@ -96,12 +102,12 @@ function buildCategoryRows(reports, targets, products) {
   }
 
   targets.forEach((target) => {
-    const productId = text(target.ProductID);
-    if (!productId) return;
-    const { categoryRow, product } = ensure(productId, target);
-    const amount = toNumber(target.TargetPieces);
-    categoryRow.targetPieces += amount;
-    product.targetPieces += amount;
+    const rowProductTargets = getTargetRowProductTargets(target, productNameToId);
+    rowProductTargets.forEach((amount, productId) => {
+      const { categoryRow, product } = ensure(productId, target);
+      categoryRow.targetPieces += amount;
+      product.targetPieces += amount;
+    });
   });
 
   reports.forEach((report) => {
@@ -129,7 +135,7 @@ function buildCategoryRows(reports, targets, products) {
   })).sort(productOrder.compareCategories);
 }
 
-function buildDelegateMetrics(delegates, reports, targets, supervisorAssignments) {
+function buildDelegateMetrics(delegates, reports, targets, supervisorAssignments, productNameToId = new Map()) {
   const metrics = new Map(delegates.map((delegate) => [text(delegate.DelegateID), emptyMetrics({
     delegateId: text(delegate.DelegateID),
     delegateName: text(delegate.DelegateName) || text(delegate.Name),
@@ -141,7 +147,7 @@ function buildDelegateMetrics(delegates, reports, targets, supervisorAssignments
     const delegateId = text(target.DelegateID);
     const metric = metrics.get(delegateId);
     if (!metric) return;
-    metric.targetPieces += toNumber(target.TargetPieces);
+    metric.targetPieces += getTargetRowTotalPieces(target, productNameToId);
     const targetKey = `${delegateId}\u0000${toDate(target.Date) || rowMonth(target)}\u0000${branchKey(target)}`;
     customerTargets.set(targetKey, Math.max(customerTargets.get(targetKey) || 0, toNumber(target.TargetConsumer)));
   });
@@ -309,11 +315,17 @@ async function getOversightData(user, { month, date } = {}) {
   const supervisorId = supervisorIdForUser(user, supervisorSheet.rows);
   const team = scopedDelegates(user, delegateSheet.rows, supervisorAssignments, reportSheet.rows, targetSheet.rows, supervisorId);
   const teamIds = new Set(team.map((delegate) => text(delegate.DelegateID)));
-  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => matchesReportRange(report, range) && (
+  const rawReports = reportSheet.rows.filter((report) => matchesReportRange(report, range) && (
     role === "Management" || key(report.SupervisorsID) === supervisorId
-  )), productSheet.rows, unitPriceSheet.rows);
+  ));
+  const reports = resolveReportTargetValues(
+    resolveReportsPricing(rawReports, productSheet.rows, unitPriceSheet.rows),
+    targetSheet.rows,
+    buildProductNameToIdMap(productSheet.rows),
+    null
+  );
   const targets = targetSheet.rows.filter((target) => teamIds.has(text(target.DelegateID)) && matchesTargetRange(target, range));
-  const delegates = buildDelegateMetrics(team, reports, targets, supervisorAssignments).sort((left, right) => right.actualPieces - left.actualPieces || left.delegateName.localeCompare(right.delegateName, "ar"));
+  const delegates = buildDelegateMetrics(team, reports, targets, supervisorAssignments, buildProductNameToIdMap(productSheet.rows)).sort((left, right) => right.actualPieces - left.actualPieces || left.delegateName.localeCompare(right.delegateName, "ar"));
   const shortages = await getShortageAnalyticsForDelegateIds(teamIds, range);
 
   return {
@@ -354,9 +366,15 @@ async function getDelegateDrilldown(user, { delegateId, month, date } = {}) {
     throw error;
   }
 
-  const reports = resolveReportsPricing(reportSheet.rows.filter((report) => key(report.DelegateID) === key(delegate.DelegateID)
+  const delegateReports = reportSheet.rows.filter((report) => key(report.DelegateID) === key(delegate.DelegateID)
     && matchesReportRange(report, range)
-    && (canonicalRole(user.role) === "Management" || key(report.SupervisorsID) === supervisorId)), productSheet.rows, unitPriceSheet.rows);
+    && (canonicalRole(user.role) === "Management" || key(report.SupervisorsID) === supervisorId));
+  const reports = resolveReportTargetValues(
+    resolveReportsPricing(delegateReports, productSheet.rows, unitPriceSheet.rows),
+    targetSheet.rows,
+    buildProductNameToIdMap(productSheet.rows),
+    null
+  );
   const targets = targetSheet.rows.filter((target) => key(target.DelegateID) === key(delegate.DelegateID) && matchesTargetRange(target, range));
   const summary = buildMonthlyAggregate(reports, targets, productSheet.rows, delegate.DelegateID, range.month);
   const shortages = await getShortageAnalyticsForDelegateIds(new Set([delegate.DelegateID]), range);

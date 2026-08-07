@@ -1,5 +1,8 @@
+const fs = require("fs");
+const path = require("path");
 const { sheets } = require("../config/google");
 const { SPREADSHEET_ID } = require("../config/env");
+const MOCK_SHEETS = String(process.env.MOCK_SHEETS || "").toLowerCase() === "true";
 
 const CACHE_TTL_MS = 5000;
 const sheetRowsCache = new Map();
@@ -54,6 +57,23 @@ async function contiguousTableEndRow(sheetName) {
 }
 
 async function getSheetRows(sheetName) {
+  // Local mock mode for development without Google credentials. Place
+  // JSON fixtures in `backend/mock-sheets/<SheetName>.json`.
+  if (MOCK_SHEETS) {
+    const mockPath = path.join(__dirname, "..", "mock-sheets", `${sheetName}.json`);
+    if (fs.existsSync(mockPath)) {
+      const content = JSON.parse(fs.readFileSync(mockPath, "utf8"));
+      // Cache a resolved Promise-like object shape to match normal behavior
+      const value = { headers: content.headers || [], rows: content.rows || [], rowNumbers: content.rowNumbers || [] };
+      sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+      return value;
+    }
+    // If mock mode enabled but no file found, return empty sheet structure
+    const empty = { headers: [], rows: [], rowNumbers: [] };
+    sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value: empty });
+    return empty;
+  }
+
   requireSpreadsheetId();
 
   const cached = sheetRowsCache.get(sheetName);
@@ -61,9 +81,9 @@ async function getSheetRows(sheetName) {
 
   const request = sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    // Reports now includes audit fields after the original columns. Keep the
-    // read range wider so those fields remain available when the row is edited.
-    range: `${sheetName}!A:AZ`,
+    // Read a wider column range to support dynamically added product headers
+    // and target columns beyond the original A:AZ width.
+    range: `${sheetName}!A:ZZ`,
   }).then((response) => {
     const values = response.data.values || [];
     if (!values.length) return { headers: [], rows: [], rowNumbers: [] };

@@ -3,9 +3,10 @@ const { getReportsForDelegate, getTargetSummaryForDate, makeSummary } = require(
 const { getAnnualVacationDays, getVacationSummary } = require("./vacation.service");
 const { createProductOrder } = require("../utils/product-order");
 const { getShortageAnalytics } = require("./shortage.service");
+const { buildProductNameToIdMap, getTargetRowProductTargets, matchesDelegateRow } = require("./target.service");
 
 function matchesDelegate(row, delegateId) {
-  return String(row.DelegateID || "").trim() === String(delegateId || "").trim();
+  return matchesDelegateRow(row, delegateId);
 }
 
 function reportId(report) {
@@ -55,6 +56,7 @@ function buildCustomerDays(reports, targets, delegateId, month) {
 
 function buildProductPerformance(reports, targets, products, delegateId, month) {
   const catalog = new Map(products.map((product) => [String(product.ProductID || "").trim(), product]));
+  const productNameToId = buildProductNameToIdMap(products);
   const productOrder = createProductOrder(products);
   const performance = new Map();
 
@@ -75,9 +77,10 @@ function buildProductPerformance(reports, targets, products, delegateId, month) 
 
   targets.forEach((target) => {
     if (!matchesDelegate(target, delegateId) || (month && toMonth(target.Month || target.Date) !== month)) return;
-    const productId = String(target.ProductID || "").trim();
-    if (!productId) return;
-    ensure(productId, target.ProductName).target += toNumber(target.TargetPieces);
+    const rowProductTargets = getTargetRowProductTargets(target, productNameToId);
+    rowProductTargets.forEach((amount, productId) => {
+      ensure(productId, target.ProductName).target += amount;
+    });
   });
 
   reports.forEach((report) => {
@@ -145,6 +148,7 @@ function buildCumulativeDetails(reports, targets, products, delegateId) {
 
 function buildProductDays(reports, targets, products, delegateId, month) {
   const catalog = new Map(products.map((product) => [String(product.ProductID || "").trim(), product]));
+  const productNameToId = buildProductNameToIdMap(products);
   const productOrder = createProductOrder(products);
   const byProductDay = new Map();
 
@@ -168,9 +172,11 @@ function buildProductDays(reports, targets, products, delegateId, month) {
   targets.forEach((target) => {
     if (!matchesDelegate(target, delegateId) || toMonth(target.Month || target.Date) !== month) return;
     const date = toDate(target.Date);
-    const productId = String(target.ProductID || "").trim();
-    if (!date || !productId) return;
-    ensure(date, productId, target.ProductName).target += toNumber(target.TargetPieces);
+    if (!date) return;
+    const rowProductTargets = getTargetRowProductTargets(target, productNameToId);
+    rowProductTargets.forEach((amount, productId) => {
+      ensure(date, productId, target.ProductName).target += amount;
+    });
   });
 
   reports.forEach((report) => {

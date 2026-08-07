@@ -396,31 +396,46 @@ export default function NewVisitPage() {
                   </Stack>
                 </Box>
               </AccordionSummary>
-              <AccordionDetails sx={{ px: 0 }}><Stack divider={<Divider flexItem />}>
-                {products.map((product) => {
-                  const target = Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0);
-                  const actual = entries[product.ProductID]?.actualPieces || "";
-                  const achievement = target && actual !== "" ? Math.round((Number(actual) / target) * 100) : 0;
-                  const salesValue = Number(actual || 0) * Number(product.UnitPrice || 0);
-                  return <Box key={product.ProductID} sx={{ py: 1.1, px: { xs: 0, sm: .5 } }}>
-                    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 56px", gap: 1, alignItems: "start", direction: "rtl" }}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Box sx={{ minWidth: 0, textAlign: "right" }}><Typography fontWeight={800} noWrap>{product.ProductName}</Typography><Typography variant="caption" color="text.secondary" noWrap>كود: {product.ProductID}</Typography></Box>
-                        <Box sx={{ mt: .9, display: "grid", gridTemplateColumns: "minmax(60px, .66fr) minmax(72px, .8fr) 52px", gap: .5, alignItems: "center", direction: "rtl" }}>
-                          <Box sx={{ textAlign: "center", py: .48, borderRadius: 1.55, bgcolor: "#f5f8fc" }}><Typography variant="caption" color="text.secondary" display="block">الهدف</Typography><Typography fontWeight={800}>{number(target)}</Typography></Box>
-                          <TextField size="small" type="number" label="المحقق" value={actual} onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0 }} sx={{ "& .MuiInputBase-root": { height: 40 }, "& .MuiInputBase-input": { textAlign: "center", py: .5 } }} />
-                          <Box sx={{ width: 52, textAlign: "center", py: .28, borderRadius: 1.35, bgcolor: "#f2f8ff" }}><Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: ".62rem", lineHeight: 1.15 }}>الإنجاز</Typography><Typography color="primary.main" fontWeight={900} sx={{ fontSize: ".86rem", lineHeight: 1.35 }}>{achievement}%</Typography></Box>
+              <AccordionDetails sx={{ px: 0 }}>
+                <Box sx={{ px: { xs: 1.2, sm: 1.5 }, py: 1, borderBottom: "1px solid #e8edf7", bgcolor: "#f8fafc", display: "grid", gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1.7fr) 92px 100px 74px" }, gap: 1, alignItems: "center" }}>
+                  <Typography variant="caption" fontWeight={900} color="text.secondary">المنتج</Typography>
+                  <Typography variant="caption" fontWeight={900} color="text.secondary" textAlign="center">الهدف</Typography>
+                  <Typography variant="caption" fontWeight={900} color="text.secondary" textAlign="center">المحقق</Typography>
+                  <Typography variant="caption" fontWeight={900} color="text.secondary" textAlign="center">الإنجاز</Typography>
+                </Box>
+                <Stack divider={<Divider flexItem />}>
+                  {products.map((product) => {
+                    const target = Number(init?.productTargets?.[String(product.ProductID)]?.targetPieces || 0);
+                    const actual = entries[product.ProductID]?.actualPieces || "";
+                    const achievement = target && actual !== "" ? Math.round((Number(actual) / target) * 100) : 0;
+                    const salesValue = Number(actual || 0) * Number(product.UnitPrice || 0);
+                    return <Box key={product.ProductID} sx={{ py: 1.15, px: { xs: 1.2, sm: 1.5 } }}>
+                      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1.7fr) 92px 100px 74px" }, gap: 1, alignItems: "center", direction: "rtl" }}>
+                        <Box sx={{ minWidth: 0, display: "flex", alignItems: "center", gap: 1 }}>
+                          <ProductThumbnail product={product} size={44} />
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={800} noWrap>{product.ProductName}</Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>كود: {product.ProductID}</Typography>
+                          </Box>
+                        </Box>
+                        <Box sx={{ textAlign: "center", py: .6, borderRadius: 1.5, bgcolor: "#f5f8fc" }}>
+                          <Typography variant="caption" color="text.secondary" display="block">الهدف</Typography>
+                          <Typography fontWeight={800}>{number(target)}</Typography>
+                        </Box>
+                        <TextField size="small" type="number" value={actual} placeholder="٠" onChange={(event) => updateEntry(product, event.target.value)} inputProps={{ min: 0, inputMode: "numeric", pattern: "[0-9]*" }} sx={{ "& .MuiInputBase-root": { height: 40 }, "& .MuiInputBase-input": { textAlign: "center", py: .5 } }} />
+                        <Box sx={{ width: "100%", textAlign: "center", py: .6, borderRadius: 1.35, bgcolor: "#f2f8ff" }}>
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: ".62rem", lineHeight: 1.15 }}>الإنجاز</Typography>
+                          <Typography color="primary.main" fontWeight={900} sx={{ fontSize: ".86rem", lineHeight: 1.35 }}>{achievement}%</Typography>
                         </Box>
                       </Box>
-                      <ProductThumbnail product={product} />
-                    </Box>
-                    <Box sx={{ mt: .8, pt: .8, borderTop: "1px dashed #dce7e8", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: .75 }}>
-                      <Box sx={{ textAlign: "center" }}><Typography variant="caption" color="text.secondary" display="block">سعر الوحدة</Typography><Typography fontWeight={800}>{product.UnitPrice === "" || product.UnitPrice === undefined ? "غير محدد" : `${number(product.UnitPrice)} ج.م`}</Typography></Box>
-                      <Box sx={{ textAlign: "center", borderInlineStart: "1px solid #e5ebf2" }}><Typography variant="caption" color="text.secondary" display="block">قيمة البيع</Typography><Typography color="#0f766e" fontWeight={900}>{number(salesValue)} ج.م</Typography></Box>
-                    </Box>
-                  </Box>;
-                })}
-              </Stack></AccordionDetails>
+                      <Box sx={{ mt: .9, pt: .8, borderTop: "1px dashed #dce7e8", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: .75 }}>
+                        <Box sx={{ textAlign: "center" }}><Typography variant="caption" color="text.secondary" display="block">سعر الوحدة</Typography><Typography fontWeight={800}>{product.UnitPrice === "" || product.UnitPrice === undefined ? "غير محدد" : `${number(product.UnitPrice)} ج.م`}</Typography></Box>
+                        <Box sx={{ textAlign: "center", borderInlineStart: "1px solid #e5ebf2" }}><Typography variant="caption" color="text.secondary" display="block">قيمة البيع</Typography><Typography color="#0f766e" fontWeight={900}>{number(salesValue)} ج.م</Typography></Box>
+                      </Box>
+                    </Box>;
+                  })}
+                </Stack>
+              </AccordionDetails>
             </Accordion>;
           })}
         </CardContent></Card>}

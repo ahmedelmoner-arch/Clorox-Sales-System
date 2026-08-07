@@ -1,0 +1,8 @@
+{
+  "headers": ["DelegateID","Date","BranchName","TargetConsumer","Clorox 1L","Multipurpose 500ml"],
+  "rows": [
+    {"DelegateID":"D001","Date":"2026-08-07","BranchName":"Branch A","TargetConsumer":"10","Clorox 1L":"5","Multipurpose 500ml":"3","Trigger":"2","Wipes":"1","Kitchen Cleaner Regular 500ml":"4","Kitchen Cleaner Lemon 500ml":"6","Bathroom Cleaner 500ml":"2","Multipurpose Cleaner 500ml":"3","CDW F. Pack10":"1","CDW L. Pack10":"2","CDW F. Pack20":"0","CDW L. Pack20":"1","CDW F. Pack40":"0","CDW L. Pack40":"0"},
+    {"DelegateID":"D002","Date":"2026-08-07","BranchName":"Branch B","TargetConsumer":"8","Clorox 1L":"2","Multipurpose 500ml":"4","Trigger":"0","Wipes":"2"}
+  ],
+  "rowNumbers": [2,3]
+}

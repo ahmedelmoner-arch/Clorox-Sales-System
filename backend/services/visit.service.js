@@ -1,6 +1,7 @@
 const branchService = require("./branch.service");
 const productService = require("./product.service");
 const { currentDate, getSheetRows, toDate, toMonth, toNumber } = require("./sheets.service");
+const { buildProductNameToIdMap, getTargetRowProductTargets, matchesDelegateRow } = require("./target.service");
 const { canonicalReportType } = require("../utils/report-types");
 const { UNIT_PRICE_SHEET, addMonthlyUnitPrices, priceMonthColumn } = require("./unit-price.service");
 
@@ -45,22 +46,25 @@ async function getInitData(user, { date, branchId, branchName } = {}) {
   const selectedDate = toDate(date) || currentDate();
   const selectedBranch = { BranchID: branchId, BranchName: branchName };
   const hasSelectedBranch = Boolean(normalizeTargetValue(branchId) || normalizeTargetValue(branchName));
+  const productNameToId = buildProductNameToIdMap(products);
   const customerTargetsByBranch = new Map();
   const productTargets = targetsResult.rows.reduce((result, target) => {
-    const sameDelegate = String(target.DelegateID) === delegateId;
+    const sameDelegate = matchesDelegateRow(target, user);
     const dateValue = toDate(target.Date);
     const sameDate = dateValue ? dateValue === selectedDate : toMonth(target.Month) === toMonth(selectedDate);
-    if (!sameDelegate || !sameDate || !hasSelectedBranch || !matchesTargetBranch(target, selectedBranch)) return result;
+    if (!sameDelegate || !sameDate) return result;
+    if (hasSelectedBranch && !matchesTargetBranch(target, selectedBranch)) return result;
 
     const branchKey = targetBranchKey(target);
     customerTargetsByBranch.set(branchKey, Math.max(customerTargetsByBranch.get(branchKey) || 0, toNumber(target.TargetConsumer)));
 
-    const productId = String(target.ProductID || "").trim();
-    if (!productId) return result;
-    const previous = result[productId] || { targetPieces: 0 };
-    result[productId] = {
-      targetPieces: previous.targetPieces + toNumber(target.TargetPieces),
-    };
+    const rowProductTargets = getTargetRowProductTargets(target, productNameToId);
+    rowProductTargets.forEach((amount, productId) => {
+      const previous = result[productId] || { targetPieces: 0 };
+      result[productId] = {
+        targetPieces: previous.targetPieces + amount,
+      };
+    });
     return result;
   }, {});
 

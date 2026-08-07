@@ -10,8 +10,9 @@ function normalizeText(value) {
     .replace(/ة/g, "ه");
 }
 
+const { matchesDelegateRow } = require("./target.service");
 function matchesDelegate(row, delegateId) {
-  return String(row.DelegateID || "").trim() === String(delegateId || "").trim();
+  return matchesDelegateRow(row, delegateId);
 }
 
 function isAnnualVacation(vacationType) {

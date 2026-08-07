@@ -9,6 +9,7 @@ const {
   toNumber,
   updateSheetRow,
 } = require("./sheets.service");
+const { buildProductNameToIdMap, getTargetRowProductTargets, getTargetRowTotalPieces, matchesDelegateRow } = require("./target.service");
 const { canonicalReportType } = require("../utils/report-types");
 const { isAnnualVacation, syncVacationDelegateBalance } = require("./vacation.service");
 const { createProductOrder } = require("../utils/product-order");
@@ -34,7 +35,7 @@ function targetMonth(target) {
 }
 
 function matchesDelegate(report, delegateId) {
-  return String(report.DelegateID || "").trim() === String(delegateId || "").trim();
+  return matchesDelegateRow(report, delegateId);
 }
 
 function normalizeTargetValue(value) {
@@ -152,6 +153,7 @@ function makeSummary(reports) {
 
 function buildMonthlyAggregate(reports, targets, products, delegateId, month) {
   const catalog = new Map(products.map((product) => [String(product.ProductID || "").trim(), product]));
+  const productNameToId = buildProductNameToIdMap(products);
   const productOrder = createProductOrder(products);
   const productTotals = new Map();
   const customerTargetsByDayBranch = new Map();
@@ -182,9 +184,10 @@ function buildMonthlyAggregate(reports, targets, products, delegateId, month) {
       Math.max(customerTargetsByDayBranch.get(customerKey) || 0, toNumber(target.TargetConsumer))
     );
 
-    const productId = String(target.ProductID || "").trim();
-    if (!productId) return;
-    ensureProduct(productId, target).targetPieces += toNumber(target.TargetPieces);
+    const rowProductTargets = getTargetRowProductTargets(target, productNameToId);
+    rowProductTargets.forEach((amount, productId) => {
+      ensureProduct(productId, target).targetPieces += amount;
+    });
   });
 
   reports.forEach((report) => {
@@ -255,18 +258,21 @@ async function getReportsForDelegate(user, { month, type, all = false } = {}) {
     getSheetRows("Products"),
     getSheetRows(UNIT_PRICE_SHEET),
   ]);
+  const targetProductNameToId = buildProductNameToIdMap(productSheet.rows);
   const { rows } = reportSheet;
   const selectedMonth = all ? null : (month || currentMonth());
   const selectedType = type ? canonicalReportType(type) : null;
   const delegateId = user.delegateId || user.id;
   const reportsForMonth = rows.filter((report) => matchesDelegate(report, delegateId) && (all || reportMonth(report) === selectedMonth));
-  const withResolvedTargetConsumers = (matchingReports) => resolveReportsPricing(matchingReports, productSheet.rows, unitPriceSheet.rows).map((report) => ({
-    ...report,
-    TargetConsumer: getTargetsForDate(targetSheet.rows, user, toDate(report.Date), report).targetConsumers || toNumber(report.TargetConsumer),
-  }));
-  const reports = orderByDate(withResolvedTargetConsumers(reportsForMonth.filter((report) => !type || report.ReportType === selectedType)));
+  const withResolvedTargets = (matchingReports) => resolveReportTargetValues(
+    resolveReportsPricing(matchingReports, productSheet.rows, unitPriceSheet.rows),
+    targetSheet.rows,
+    targetProductNameToId,
+    user
+  );
+  const reports = orderByDate(withResolvedTargets(reportsForMonth.filter((report) => !type || report.ReportType === selectedType)));
   const monthlyAggregate = buildMonthlyAggregate(
-    withResolvedTargetConsumers(reportsForMonth),
+    withResolvedTargets(reportsForMonth),
     targetSheet.rows,
     productSheet.rows,
     delegateId,
@@ -277,14 +283,18 @@ async function getReportsForDelegate(user, { month, type, all = false } = {}) {
 }
 
 async function getTargetSummary(user, month = currentMonth()) {
-  const { rows } = await getSheetRows("Targets");
+  const [targetSheet, productSheet] = await Promise.all([
+    getSheetRows("Targets"),
+    getSheetRows("Products"),
+  ]);
   const delegateId = user.delegateId || user.id;
   const customerTargetsByDay = new Map();
   let targetPieces = 0;
+  const productNameToId = buildProductNameToIdMap(productSheet.rows);
 
-  rows.forEach((target) => {
+  targetSheet.rows.forEach((target) => {
     if (!matchesDelegate(target, delegateId) || toMonth(target.Month || target.Date) !== month) return;
-    targetPieces += toNumber(target.TargetPieces);
+    targetPieces += getTargetRowTotalPieces(target, productNameToId);
     const dayKey = `${toDate(target.Date) || String(target.Month || month)}-${targetBranchKey(target)}`;
     customerTargetsByDay.set(dayKey, Math.max(customerTargetsByDay.get(dayKey) || 0, toNumber(target.TargetConsumer)));
   });
@@ -296,8 +306,12 @@ async function getTargetSummary(user, month = currentMonth()) {
 }
 
 async function getTargetSummaryForDate(user, date) {
-  const { rows } = await getSheetRows("Targets");
-  const { productTargets, targetConsumers } = getTargetsForDate(rows, user, date);
+  const [targetSheet, productSheet] = await Promise.all([
+    getSheetRows("Targets"),
+    getSheetRows("Products"),
+  ]);
+  const targetProductNameToId = buildProductNameToIdMap(productSheet.rows);
+  const { productTargets, targetConsumers } = getTargetsForDate(targetSheet.rows, user, date, undefined, targetProductNameToId);
   return {
     targetPieces: [...productTargets.values()].reduce((total, value) => total + value, 0),
     targetConsumers,
@@ -322,8 +336,10 @@ function safeText(value, maximumLength = 500) {
   return String(value ?? "").trim().slice(0, maximumLength);
 }
 
-function getTargetsForDate(targets, user, date, branch) {
-  const delegateId = user.delegateId || user.id;
+function getTargetsForDate(targets, userOrDelegate, date, branch, productNameToId = new Map()) {
+  const delegateId = typeof userOrDelegate === "string"
+    ? String(userOrDelegate).trim()
+    : String(userOrDelegate?.delegateId || userOrDelegate?.id || userOrDelegate?.DelegateID || userOrDelegate?.DelegateId || userOrDelegate?.delegateId || "").trim();
   const targetMonth = toMonth(date);
   const productTargets = new Map();
   const customerTargetsByBranch = new Map();
@@ -340,15 +356,44 @@ function getTargetsForDate(targets, user, date, branch) {
       Math.max(customerTargetsByBranch.get(branchKey) || 0, toNumber(target.TargetConsumer))
     );
 
-    const productId = String(target.ProductID || "").trim();
-    if (!productId) return;
-    productTargets.set(productId, (productTargets.get(productId) || 0) + toNumber(target.TargetPieces));
+    const rowProductTargets = getTargetRowProductTargets(target, productNameToId);
+    rowProductTargets.forEach((amount, productId) => {
+      productTargets.set(productId, (productTargets.get(productId) || 0) + amount);
+    });
   });
 
   return {
     productTargets,
     targetConsumers: [...customerTargetsByBranch.values()].reduce((total, value) => total + value, 0),
   };
+}
+
+function resolveReportTargetValues(reports, targetSheetRows, productNameToId, userOrDelegate = null) {
+  const cache = new Map();
+
+  return reports.map((report) => {
+    const date = toDate(report.Date);
+    const branch = { BranchID: report.BranchID, BranchName: report.BranchName };
+    const delegateId = String(report.DelegateID || report.DelegateId || report.delegateId || "").trim();
+    const delegateReference = delegateId || userOrDelegate;
+    const cacheKey = `${String(delegateReference || "")}||${date}||${String(report.BranchID || "")}||${String(report.BranchName || "")}`;
+    let resolved = cache.get(cacheKey);
+    if (!resolved) {
+      resolved = getTargetsForDate(targetSheetRows, delegateReference, date, branch, productNameToId);
+      cache.set(cacheKey, resolved);
+    }
+
+    const hasTargetConsumer = report.TargetConsumer != null && String(report.TargetConsumer).trim() !== "";
+    const productId = String(report.ProductID || "").trim();
+    const resolvedTargetPieces = resolved.productTargets.get(productId);
+    const hasTargetPieces = report.TargetPieces != null && String(report.TargetPieces).trim() !== "";
+
+    return {
+      ...report,
+      TargetConsumer: hasTargetConsumer ? toNumber(report.TargetConsumer) : resolved.targetConsumers,
+      TargetPieces: hasTargetPieces ? report.TargetPieces : resolvedTargetPieces != null ? resolvedTargetPieces : "",
+    };
+  });
 }
 
 function buildRecord({ user, payload, reportType, date, branch, supervisor, product, isFirst, reportId, targetConsumers, audit = {} }) {
@@ -377,8 +422,8 @@ function buildRecord({ user, payload, reportType, date, branch, supervisor, prod
     VacationType: reportType === "Vacation" ? safeText(payload.vacationType, 100) : "",
     ProductID: product?.ProductID || "",
     ProductName: product?.ProductName || "",
-    TargetPieces: product?.targetPieces || "",
-    ActualPieces: product?.actualPieces || "",
+    TargetPieces: product?.targetPieces != null ? product.targetPieces : "",
+    ActualPieces: product?.actualPieces != null ? product.actualPieces : "",
     Vouchers: reportType === "Vouchers" && isFirst
       ? requireEnteredNonNegativeInteger(payload.vouchers, "Vouchers")
       : "",
@@ -387,7 +432,7 @@ function buildRecord({ user, payload, reportType, date, branch, supervisor, prod
     PostiveConsumer: positiveConsumers,
     NegativeConsumer: negativeConsumers,
     TotalConsumer: hasConsumerFields ? positiveConsumers + negativeConsumers : "",
-    TargetConsumer: isFirst && targetConsumers ? targetConsumers : "",
+    TargetConsumer: isFirst && targetConsumers != null ? targetConsumers : "",
     Notes: isFirst ? safeText(payload.notes) : "",
     CreatedAt: audit.createdAt || new Date().toISOString(),
     LastModifiedAt: audit.lastModifiedAt || "",
@@ -522,9 +567,10 @@ async function prepareReport(user, payload, reportSheet, { excludedReportId = ""
     throw new Error("No annual-leave balance was found for this delegate in VacationDelegate");
   }
 
+  const targetProductNameToId = buildProductNameToIdMap(productSheet.rows);
   const { productTargets, targetConsumers } = reportType === "Vacation"
     ? { productTargets: new Map(), targetConsumers: 0 }
-    : getTargetsForDate(targetSheet.rows, user, date, branch);
+    : getTargetsForDate(targetSheet.rows, user, date, branch, targetProductNameToId);
   const productCatalog = new Map(productSheet.rows.map((product) => [String(product.ProductID || "").trim(), product]));
   const unitPriceCatalog = createUnitPriceCatalog(unitPriceSheet.rows);
   const seenProductIds = new Set();
@@ -664,4 +710,4 @@ async function updateReport(user, reportId, payload) {
   };
 }
 
-module.exports = { createReport, getReportForDelegate, getReportsForDelegate, getTargetSummary, getTargetSummaryForDate, makeSummary, buildMonthlyAggregate, resolveReportsPricing, updateReport };
+module.exports = { createReport, getReportForDelegate, getReportsForDelegate, getTargetSummary, getTargetSummaryForDate, makeSummary, buildMonthlyAggregate, resolveReportsPricing, resolveReportTargetValues, updateReport };

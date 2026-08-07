@@ -1,0 +1,1 @@
+The new target.service.js file normalizes Google Sheet target row fields and maps product-name headers to product IDs when available.

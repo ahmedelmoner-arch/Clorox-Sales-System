@@ -1,0 +1,124 @@
+{
+  "productsCount": 86,
+  "triggerProducts": [
+    {
+      "UUID": "49",
+      "ProductID": "898",
+      "ProductName": "Kitchen Cleaner Regular 500ml",
+      "Category": "TRIGGER",
+      "ImageUrl": "Kitchen Cleaner Regular 500ml.webp"
+    },
+    {
+      "UUID": "50",
+      "ProductID": "899",
+      "ProductName": "Kitchen Cleaner Lemon 500ml",
+      "Category": "TRIGGER",
+      "ImageUrl": "Kitchen Cleaner Lemon 500ml.webp"
+    },
+    {
+      "UUID": "51",
+      "ProductID": "897",
+      "ProductName": "Bathroom Cleaner 500ml",
+      "Category": "TRIGGER",
+      "ImageUrl": "Bathroom Cleaner 500ml.png"
+    },
+    {
+      "UUID": "52",
+      "ProductID": "895",
+      "ProductName": "Multipurpose Cleaner 500ml",
+      "Category": "TRIGGER",
+      "ImageUrl": "Multipurpose Cleaner 500ml.webp"
+    }
+  ],
+  "wipesProducts": [
+    {
+      "UUID": "53",
+      "ProductID": "1155",
+      "ProductName": "CDW F. Pack10",
+      "Category": "WIPES",
+      "ImageUrl": "CDW F. Pack10.png"
+    },
+    {
+      "UUID": "54",
+      "ProductID": "1156",
+      "ProductName": "CDW L. Pack10",
+      "Category": "WIPES",
+      "ImageUrl": "CDW L. Pack10.png"
+    },
+    {
+      "UUID": "55",
+      "ProductID": "1157",
+      "ProductName": "CDW F. Pack20",
+      "Category": "WIPES",
+      "ImageUrl": "CDW F. Pack20.png"
+    },
+    {
+      "UUID": "56",
+      "ProductID": "1158",
+      "ProductName": "CDW L. Pack20",
+      "Category": "WIPES",
+      "ImageUrl": "CDW L. Pack20.png"
+    },
+    {
+      "UUID": "57",
+      "ProductID": "1159",
+      "ProductName": "CDW F. Pack40",
+      "Category": "WIPES",
+      "ImageUrl": "CDW F. Pack40.png"
+    },
+    {
+      "UUID": "58",
+      "ProductID": "1160",
+      "ProductName": "CDW L. Pack40",
+      "Category": "WIPES",
+      "ImageUrl": "CDW L. Pack40.png"
+    }
+  ],
+  "targetsCount": 1054,
+  "targetDataKeys": [
+    "Clorox Saving Pack 1kg",
+    "CLB R. 950ml",
+    "CLB L. 950ml",
+    "CLB F. 950ml",
+    "CLB Lav. 950ml",
+    "CLB R. 1.2 Lit.",
+    "CLB H. Gallon",
+    "CLB R. Gallon",
+    "CLB L. 4Lit",
+    "CLB F. 4Lit",
+    "CLB Lav. 4Lit",
+    "Clorita 1kg",
+    "CFC Pouch 400ml",
+    "CFC R. 750ml",
+    "CFC R. 950ml",
+    "CFC F. 950ml",
+    "CFC Lav. 950ml",
+    "CFC R. 2Lit",
+    "CFC F. 2Lit",
+    "CFC Lav. 2Lit",
+    "MPC 1Lit",
+    "MPC H. Gallon",
+    "5x1 L. Pouch 400ml",
+    "5x1 SB. Pouch 400ml",
+    "5x1 Lav. Pouch 400ml",
+    "5x1 L. 700ml",
+    "5x1 SB. 700ml",
+    "5x1 Lav. 700ml",
+    "5x1 L. 3Lit",
+    "5x1 SB. 3Lit",
+    "5x1 Lav. 3Lit",
+    "PWD Pouch 30gm",
+    "PWD Pouch 250gm",
+    "PWD 450gm",
+    "Gel L. 400ml",
+    "Gel F. 400ml",
+    "Gel M. 400ml",
+    "Gel L. 750ml",
+    "Gel F. 750ml",
+    "Gel M. 750ml",
+    "CFC Premium 500ml",
+    "CFC Premium 900ml",
+    "CFC Premium 1.8Lit",
+    "CFC Premium Pre-Treater 500ml"
+  ]
+}

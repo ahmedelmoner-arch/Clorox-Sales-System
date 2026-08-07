@@ -1,0 +1,20 @@
+{
+  "headers": ["ProductID","ProductName","Category"],
+  "rows": [
+    {"ProductID":"P001","ProductName":"Clorox 1L","Category":"Cleaning"},
+    {"ProductID":"P002","ProductName":"Multipurpose 500ml","Category":"Cleaning"},
+    {"ProductID":"P003","ProductName":"Kitchen Cleaner Trigger 500ml","Category":"trigger"},
+    {"ProductID":"P004","ProductName":"Wipes Lemon 20","Category":"wipes"},
+    {"ProductID":"P005","ProductName":"Kitchen Cleaner Regular 500ml","Category":"trigger"},
+    {"ProductID":"P006","ProductName":"Kitchen Cleaner Lemon 500ml","Category":"trigger"},
+    {"ProductID":"P007","ProductName":"Bathroom Cleaner 500ml","Category":"cleaning"},
+    {"ProductID":"P008","ProductName":"Multipurpose Cleaner 500ml","Category":"mpc"},
+    {"ProductID":"P009","ProductName":"CDW F. Pack 10","Category":"cdw"},
+    {"ProductID":"P010","ProductName":"CDW L. Pack 10","Category":"cdw"},
+    {"ProductID":"P011","ProductName":"CDW F. Pack 20","Category":"cdw"},
+    {"ProductID":"P012","ProductName":"CDW L. Pack 20","Category":"cdw"},
+    {"ProductID":"P013","ProductName":"CDW F. Pack 40","Category":"cdw"},
+    {"ProductID":"P014","ProductName":"CDW L. Pack 40","Category":"cdw"}
+  ],
+  "rowNumbers": [2,3]
+}
