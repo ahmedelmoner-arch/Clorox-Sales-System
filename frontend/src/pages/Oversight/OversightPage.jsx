@@ -253,7 +253,24 @@ function DailySalesChart({ days }) {
 function PerformanceTable({ rows, type, onSelect }) {
   const columns = "minmax(150px, 1.35fr) 108px 108px 76px 76px 64px";
   return (
-    <Box sx={{ overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5 }}>
+    <>
+    <Box sx={{ display: { xs: "grid", sm: "none" }, gap: 1 }}>
+      {rows.length ? rows.map((row) => {
+        const name = type === "supervisor" ? row.supervisorName : type === "branch" ? row.branchName : row.delegateName;
+        const teamCount = type === "supervisor" ? ` (${number(row.delegates)})` : "";
+        const clickable = Boolean(onSelect && type === "delegate");
+        return <Box key={row.supervisorId || row.delegateId || row.branchId || row.branchName} role={clickable ? "button" : undefined} tabIndex={clickable ? 0 : undefined} onClick={clickable ? () => onSelect(row) : undefined} onKeyDown={clickable ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(row); } } : undefined} sx={{ p: 1.35, border: "1px solid #e0e8f2", borderRadius: 2.5, bgcolor: "#fff", cursor: clickable ? "pointer" : "default", "&:active": clickable ? { bgcolor: "#f3f8ff" } : undefined, "&:focus-visible": clickable ? { outline: "3px solid #2563eb55", outlineOffset: 2 } : undefined }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1.1 }}><Stack direction="row" alignItems="center" spacing={0.35} minWidth={0}><Typography fontWeight={900} noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>{name || "غير محدد"}{teamCount}</Typography>{clickable && <ChevronLeftRoundedIcon sx={{ color: "#2563eb", fontSize: 19, flex: "0 0 auto" }} />}</Stack><Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>{number(row.reports)} تقرير</Typography></Stack>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.75 }}>
+            <Box sx={{ p: 0.85, borderRadius: 2, bgcolor: "#f0fdf9" }}><Typography variant="caption" color="text.secondary">القطع</Typography><Typography fontWeight={900} color="#0f766e" sx={{ fontVariantNumeric: "tabular-nums" }}>{number(row.actualPieces)} / {number(row.targetPieces)}</Typography></Box>
+            <Box sx={{ p: 0.85, borderRadius: 2, bgcolor: "#f0fdf9" }}><Typography variant="caption" color="text.secondary">إنجاز القطع</Typography><Typography fontWeight={900} color="#0f766e">{percent(row.actualPieces, row.targetPieces)}</Typography></Box>
+            <Box sx={{ p: 0.85, borderRadius: 2, bgcolor: "#f7f3ff" }}><Typography variant="caption" color="text.secondary">العملاء</Typography><Typography fontWeight={900} color="#7c3aed" sx={{ fontVariantNumeric: "tabular-nums" }}>{number(row.totalConsumers)} / {number(row.targetConsumers)}</Typography></Box>
+            <Box sx={{ p: 0.85, borderRadius: 2, bgcolor: "#f7f3ff" }}><Typography variant="caption" color="text.secondary">إنجاز العملاء</Typography><Typography fontWeight={900} color="#7c3aed">{percent(row.totalConsumers, row.targetConsumers)}</Typography></Box>
+          </Box>
+        </Box>;
+      }) : <Typography sx={{ p: 3, textAlign: "center", border: "1px solid #e0e8f2", borderRadius: 2.5 }} color="text.secondary">لا توجد بيانات لهذا الشهر.</Typography>}
+    </Box>
+    <Box sx={{ display: { xs: "none", sm: "block" }, overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
       <Box sx={{ minWidth: 650 }}>
         <Box
           sx={{
@@ -291,7 +308,7 @@ function PerformanceTable({ rows, type, onSelect }) {
             const clickable = Boolean(onSelect && type === "delegate");
             return (
               <Box
-                key={row.supervisorId || row.delegateId}
+                key={row.supervisorId || row.delegateId || row.branchId || row.branchName}
                 role={clickable ? "button" : undefined}
                 tabIndex={clickable ? 0 : undefined}
                 onClick={clickable ? () => onSelect(row) : undefined}
@@ -351,13 +368,27 @@ function PerformanceTable({ rows, type, onSelect }) {
         )}
       </Box>
     </Box>
+    </>
   );
 }
 
 function CategoryTable({ categories, detailed = false }) {
   const columns = "minmax(150px, 1fr) 92px 92px 112px 78px";
   return (
-    <Box sx={{ overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5 }}>
+    <>
+    <Box sx={{ display: { xs: "grid", sm: "none" }, gap: 1 }}>
+      {categories.length ? categories.map((category) => <Box key={category.category} sx={{ border: "1px solid #d7ebe7", borderRadius: 2.5, overflow: "hidden", bgcolor: "#fff" }}>
+        <Box sx={{ px: 1.35, py: 1, bgcolor: "#eff9f7" }}><Typography fontWeight={900} color="#0f766e">{category.category}</Typography></Box>
+        <Box sx={{ p: 1.1, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.75 }}>
+          <Box><Typography variant="caption" color="text.secondary">المحقق</Typography><Typography color="#16825a" fontWeight={900}>{number(category.actualPieces)}</Typography></Box>
+          <Box><Typography variant="caption" color="text.secondary">الهدف</Typography><Typography fontWeight={800}>{number(category.targetPieces)}</Typography></Box>
+          <Box><Typography variant="caption" color="text.secondary">قيمة المبيعات</Typography><Typography color={VALUE} fontWeight={900} sx={{ fontSize: "0.9rem", overflowWrap: "anywhere" }}>{money(category.salesValue)}</Typography></Box>
+          <Box><Typography variant="caption" color="text.secondary">الإنجاز</Typography><Typography color="#0f766e" fontWeight={900}>{percent(category.actualPieces, category.targetPieces)}</Typography></Box>
+        </Box>
+        {detailed && (category.products || []).map((product) => <Box key={product.productId} sx={{ px: 1.35, py: 1.05, borderTop: "1px solid #edf1f6", bgcolor: "#fbfdff" }}><Typography fontWeight={800} sx={{ mb: 0.75 }}>{product.productName}</Typography><Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.65 }}><Typography variant="caption">المحقق: <Box component="span" color="#16825a" fontWeight={900}>{number(product.actualPieces)}</Box></Typography><Typography variant="caption">الهدف: <Box component="span" fontWeight={900}>{number(product.targetPieces)}</Box></Typography><Typography variant="caption">القيمة: <Box component="span" color={VALUE} fontWeight={900}>{money(product.salesValue)}</Box></Typography><Typography variant="caption">الإنجاز: <Box component="span" color="#2563eb" fontWeight={900}>{percent(product.actualPieces, product.targetPieces)}</Box></Typography></Box></Box>)}
+      </Box>) : <Typography sx={{ p: 3, textAlign: "center", border: "1px solid #e0e8f2", borderRadius: 2.5 }} color="text.secondary">لا توجد أهداف أو منتجات لهذا الشهر.</Typography>}
+    </Box>
+    <Box sx={{ display: { xs: "none", sm: "block" }, overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
       <Box sx={{ minWidth: 580 }}>
         <Box
           sx={{
@@ -464,6 +495,7 @@ function CategoryTable({ categories, detailed = false }) {
         )}
       </Box>
     </Box>
+    </>
   );
 }
 
