@@ -4,6 +4,8 @@ async function getBranches(req, res) {
   try {
     const branches = await branchService.getBranches();
 
+    res.set("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
+
     res.json({
       success: true,
       count: branches.length,

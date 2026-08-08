@@ -4,9 +4,22 @@ const { sheets } = require("../config/google");
 const { SPREADSHEET_ID } = require("../config/env");
 const MOCK_SHEETS = String(process.env.MOCK_SHEETS || "").toLowerCase() === "true";
 
-const CACHE_TTL_MS = 5000;
+// Vercel keeps this cache only while a function instance is warm, so it is not
+// a replacement for a database. It does, however, avoid repeated full-sheet
+// reads during normal navigation inside the same warm instance.
+const REFERENCE_CACHE_TTL_MS = 15 * 60 * 1000;
+const IDENTITY_CACHE_TTL_MS = 5 * 60 * 1000;
+const OPERATIONAL_CACHE_TTL_MS = 20 * 1000;
+const OPERATIONAL_SHEETS = new Set(["Reports", "ProductShortages", "VacationDelegate"]);
+const IDENTITY_SHEETS = new Set(["Delegates", "Supervisors"]);
 const sheetRowsCache = new Map();
 const sheetTitlesCache = { expiresAt: 0, value: null };
+
+function cacheTtlForSheet(sheetName) {
+  if (OPERATIONAL_SHEETS.has(sheetName)) return OPERATIONAL_CACHE_TTL_MS;
+  if (IDENTITY_SHEETS.has(sheetName)) return IDENTITY_CACHE_TTL_MS;
+  return REFERENCE_CACHE_TTL_MS;
+}
 
 function invalidateSheetCache(sheetName) {
   sheetRowsCache.delete(sheetName);
@@ -57,6 +70,7 @@ async function contiguousTableEndRow(sheetName) {
 }
 
 async function getSheetRows(sheetName) {
+  const cacheTtlMs = cacheTtlForSheet(sheetName);
   // Local mock mode for development without Google credentials. Place
   // JSON fixtures in `backend/mock-sheets/<SheetName>.json`.
   if (MOCK_SHEETS) {
@@ -65,12 +79,12 @@ async function getSheetRows(sheetName) {
       const content = JSON.parse(fs.readFileSync(mockPath, "utf8"));
       // Cache a resolved Promise-like object shape to match normal behavior
       const value = { headers: content.headers || [], rows: content.rows || [], rowNumbers: content.rowNumbers || [] };
-      sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+      sheetRowsCache.set(sheetName, { expiresAt: Date.now() + cacheTtlMs, value });
       return value;
     }
     // If mock mode enabled but no file found, return empty sheet structure
     const empty = { headers: [], rows: [], rowNumbers: [] };
-    sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value: empty });
+    sheetRowsCache.set(sheetName, { expiresAt: Date.now() + cacheTtlMs, value: empty });
     return empty;
   }
 
@@ -100,10 +114,10 @@ async function getSheetRows(sheetName) {
     return { headers, rows, rowNumbers };
   });
 
-  sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value: request });
+  sheetRowsCache.set(sheetName, { expiresAt: Date.now() + cacheTtlMs, value: request });
   try {
     const value = await request;
-    sheetRowsCache.set(sheetName, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+    sheetRowsCache.set(sheetName, { expiresAt: Date.now() + cacheTtlMs, value });
     return value;
   } catch (error) {
     sheetRowsCache.delete(sheetName);
@@ -120,7 +134,7 @@ async function getSheetTitles() {
   });
   const titles = new Set((response.data.sheets || []).map((sheet) => sheet.properties?.title).filter(Boolean));
   sheetTitlesCache.value = titles;
-  sheetTitlesCache.expiresAt = Date.now() + CACHE_TTL_MS;
+  sheetTitlesCache.expiresAt = Date.now() + REFERENCE_CACHE_TTL_MS;
   return titles;
 }
 

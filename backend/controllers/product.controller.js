@@ -4,6 +4,8 @@ async function getProducts(req, res) {
   try {
     const products = await service.getAll();
 
+    res.set("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
+
     res.json({
       success: true,
       message: "Products loaded successfully",
