@@ -390,6 +390,12 @@ html[data-theme="dark"] .delegate-step::before { border-color: #3c4f67; backgrou
 html[data-theme="dark"] .delegate-step.is-current { background: #193b69; color: #a9ceff; }
 
 @media (max-width: 600px) {
+  .delegate-screen-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
   .clorox-login { justify-content: flex-start; gap: 10px; padding: 70px 12px 16px; }
   .clorox-login-card { box-shadow: 0 20px 45px rgba(0,55,144,.2); }
   .clorox-login-theme-toggle { top: 16px; left: 16px; }

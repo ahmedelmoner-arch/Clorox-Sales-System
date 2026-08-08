@@ -81,7 +81,7 @@ function MetricCard({ title, value, hint, color, icon }) {
             <Typography variant="caption" color="text.secondary" fontWeight={700}>
               {title}
             </Typography>
-            <Typography fontWeight={900} noWrap sx={{ fontSize: { xs: 19, sm: 23 }, color: "#132f58", mt: 0.25 }}>
+            <Typography fontWeight={900} noWrap sx={{ fontSize: { xs: "clamp(1rem, 5.4vw, 1.2rem)", sm: 23 }, color: "#132f58", mt: 0.25, fontVariantNumeric: "tabular-nums" }}>
               {value}
             </Typography>
             <Typography variant="caption" color={color} fontWeight={800} noWrap>
@@ -1061,7 +1061,7 @@ function VacationCard({ vacation }) {
         <Box textAlign="center"><Typography fontSize={22} fontWeight={900} color="#b45309">{number(vacation?.totalDays)}</Typography><Typography variant="caption" color="text.secondary">يوم</Typography></Box>
       </Stack>
       <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.5 }}>{types.length ? types.map((type) => <Box key={type.name} sx={{ px: 1, py: 0.5, borderRadius: 2, bgcolor: "#fff2d9", color: "#9a5b0d", fontSize: 12, fontWeight: 800 }}>{type.name}: {number(type.days)} يوم</Box>) : <Typography variant="body2" color="text.secondary">لا توجد إجازات مسجلة في الفترة المختارة.</Typography>}</Stack>
-      {days.length > 0 && <Box sx={{ maxHeight: 300, overflowY: "auto", borderTop: "1px solid #f2e6d5" }}>{days.map((day) => <Box key={day.id} sx={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) minmax(110px, 1fr) 92px", gap: 1, py: 1.05, borderBottom: "1px solid #f5eadc", alignItems: "center" }}><Typography fontWeight={800} noWrap>{day.delegateName || day.delegateId}</Typography><Typography variant="body2" color="#9a5b0d" noWrap>{day.vacationType}</Typography><Typography variant="caption" textAlign="left" color="text.secondary">{formatDay(day.date)}</Typography></Box>)}</Box>}
+      {days.length > 0 && <Box sx={{ maxHeight: 300, overflowY: "auto", borderTop: "1px solid #f2e6d5" }}>{days.map((day) => <Box key={day.id} sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr) auto", sm: "minmax(120px, 1fr) minmax(110px, 1fr) 92px" }, gap: { xs: 0.55, sm: 1 }, py: 1.05, borderBottom: "1px solid #f5eadc", alignItems: "center" }}><Typography fontWeight={800} noWrap sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{day.delegateName || day.delegateId}</Typography><Typography variant="body2" color="#9a5b0d" sx={{ gridColumn: { xs: "1 / -1", sm: "auto" }, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }} noWrap>{day.vacationType}</Typography><Typography variant="caption" textAlign="left" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>{formatDay(day.date)}</Typography></Box>)}</Box>}
     </CardContent>
   </Card>;
 }
