@@ -1,6 +1,6 @@
 importScripts("/precache-manifest.js");
 
-const CACHE_NAME = "clorox-sales-shell-v2";
+const CACHE_NAME = "clorox-sales-shell-v3";
 const APP_SHELL = [...new Set(["/", "/index.html", "/clorox.png", "/favicon.svg", "/manifest.webmanifest", "/precache-manifest.js", ...(self.__CLOROX_PRECACHE || [])])];
 
 self.addEventListener("install", (event) => {

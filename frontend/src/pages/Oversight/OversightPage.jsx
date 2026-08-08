@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, IconButton, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Badge, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, IconButton, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
@@ -15,6 +15,7 @@ import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
+import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AppShell from "../../components/layout/AppShell";
 import { useSession } from "../../context/SessionContext";
@@ -178,7 +179,7 @@ function SalesValueChart({ rows, nameKey, title }) {
   );
 }
 
-function TeamVolumeChart({ rows }) {
+function TeamVolumeChart({ rows, nameKey = "delegateName" }) {
   const data = [...rows]
     .filter((row) => Number(row.actualPieces) || Number(row.targetPieces))
     .sort((left, right) => Number(right.actualPieces) - Number(left.actualPieces))
@@ -190,11 +191,34 @@ function TeamVolumeChart({ rows }) {
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 4 }} barGap={5}>
           <CartesianGrid horizontal={false} stroke="#e6edf3" strokeDasharray="3 3" />
           <XAxis type="number" tickFormatter={number} tickLine={false} axisLine={false} />
-          <YAxis dataKey="delegateName" type="category" width={142} tickLine={false} axisLine={false} tick={{ fontSize: 12, fontWeight: 700 }} />
+          <YAxis dataKey={nameKey} type="category" width={142} tickLine={false} axisLine={false} tick={{ fontSize: 12, fontWeight: 700 }} />
           <Tooltip formatter={(value) => number(value)} cursor={{ fill: "#f5f8fc" }} />
           <Legend iconType="circle" />
           <Bar dataKey="actualPieces" name="المحقق" fill={ACTUAL} radius={[0, 6, 6, 0]} />
           <Bar dataKey="targetPieces" name="الهدف" fill={TARGET} radius={[0, 6, 6, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </Box>
+  );
+}
+
+function CustomerTargetChart({ rows, nameKey = "delegateName" }) {
+  const data = [...rows]
+    .filter((row) => Number(row.totalConsumers) || Number(row.targetConsumers))
+    .sort((left, right) => Number(right.totalConsumers) - Number(left.totalConsumers))
+    .slice(0, 12);
+  if (!data.length) return <EmptyChart>لا توجد أعداد عملاء أو أهداف عملاء للفترة المختارة.</EmptyChart>;
+  return (
+    <Box sx={{ height: Math.max(260, data.length * 38) }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 4 }} barGap={5}>
+          <CartesianGrid horizontal={false} stroke="#e6edf3" strokeDasharray="3 3" />
+          <XAxis type="number" tickFormatter={number} tickLine={false} axisLine={false} />
+          <YAxis dataKey={nameKey} type="category" width={142} tickLine={false} axisLine={false} tick={{ fontSize: 12, fontWeight: 700 }} />
+          <Tooltip formatter={(value) => number(value)} cursor={{ fill: "#f5f8fc" }} />
+          <Legend iconType="circle" />
+          <Bar dataKey="totalConsumers" name="العملاء المحققون" fill="#7c3aed" radius={[0, 6, 6, 0]} />
+          <Bar dataKey="targetConsumers" name="هدف العملاء" fill="#c4b5fd" radius={[0, 6, 6, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </Box>
@@ -226,7 +250,7 @@ function DailySalesChart({ days }) {
 }
 
 function PerformanceTable({ rows, type, onSelect }) {
-  const columns = "minmax(150px, 1.35fr) 98px 98px 118px 74px 64px";
+  const columns = "minmax(150px, 1.35fr) 108px 108px 76px 76px 64px";
   return (
     <Box sx={{ overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5 }}>
       <Box sx={{ minWidth: 650 }}>
@@ -250,10 +274,10 @@ function PerformanceTable({ rows, type, onSelect }) {
             العملاء
           </Typography>
           <Typography variant="caption" textAlign="center" fontWeight={800}>
-            قيمة المبيعات
+            إنجاز القطع
           </Typography>
           <Typography variant="caption" textAlign="center" fontWeight={800}>
-            الإنجاز
+            إنجاز العملاء
           </Typography>
           <Typography variant="caption" textAlign="center" fontWeight={800}>
             التقارير
@@ -261,7 +285,7 @@ function PerformanceTable({ rows, type, onSelect }) {
         </Box>
         {rows.length ? (
           rows.map((row) => {
-            const name = type === "supervisor" ? row.supervisorName : row.delegateName;
+            const name = type === "supervisor" ? row.supervisorName : type === "branch" ? row.branchName : row.delegateName;
             const teamCount = type === "supervisor" ? ` (${number(row.delegates)})` : "";
             const clickable = Boolean(onSelect && type === "delegate");
             return (
@@ -307,11 +331,11 @@ function PerformanceTable({ rows, type, onSelect }) {
                 <Typography textAlign="center" fontWeight={700}>
                   {number(row.totalConsumers)} / {number(row.targetConsumers)}
                 </Typography>
-                <Typography textAlign="center" color={VALUE} fontWeight={900}>
-                  {money(row.salesValue)}
-                </Typography>
                 <Typography textAlign="center" color="#0f766e" fontWeight={900}>
                   {percent(row.actualPieces, row.targetPieces)}
+                </Typography>
+                <Typography textAlign="center" color="#7c3aed" fontWeight={900}>
+                  {percent(row.totalConsumers, row.targetConsumers)}
                 </Typography>
                 <Typography textAlign="center" color="text.secondary">
                   {number(row.reports)}
@@ -1026,15 +1050,38 @@ function SupervisorTeamDialog({ supervisor, data, loading, error, onClose, onOpe
   );
 }
 
-function TeamAnalysisDashboard({ data, month, onSelectDelegate, onSelectSupervisor }) {
+function RegistrationDialog({ registration, open, onClose }) {
+  const registered = registration?.registered || [];
+  const missing = registration?.missing || [];
+  return <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3, overflow: "hidden" } }}>
+    <DialogTitle sx={{ pb: 1.25 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box><Typography fontWeight={900}>إشعارات تسجيل التقارير</Typography><Typography variant="caption" color="text.secondary">{registration?.date ? formatDay(registration.date) : "اليوم"}</Typography></Box>
+        <IconButton aria-label="إغلاق" onClick={onClose}><CloseRoundedIcon /></IconButton>
+      </Stack>
+    </DialogTitle>
+    <DialogContent dividers>
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.1, mb: 2 }}>
+        <MetricCard title="تم التسجيل" value={number(registration?.registeredCount)} hint={`من ${number(registration?.total)} مندوبة`} color="#16825a" icon={<GroupsOutlinedIcon />} />
+        <MetricCard title="لم تسجل بعد" value={number(registration?.missingCount)} hint="يلزم المتابعة" color="#d97706" icon={<NotificationsNoneRoundedIcon />} />
+      </Box>
+      <Typography fontWeight={900} sx={{ mb: 1 }}>المندوبات غير المسجلات</Typography>
+      {missing.length ? <Stack divider={<Divider flexItem />} sx={{ borderTop: "1px solid #edf1f6", borderBottom: "1px solid #edf1f6" }}>{missing.map((delegate) => <Box key={delegate.delegateId} sx={{ py: 1.05 }}><Typography fontWeight={700}>{delegate.delegateName || delegate.delegateId}</Typography></Box>)}</Stack> : <Alert severity="success">تم تسجيل جميع المندوبات ضمن نطاقك اليوم.</Alert>}
+      <Typography fontWeight={900} sx={{ mt: 2.2, mb: 1 }}>تم التسجيل</Typography>
+      {registered.length ? <Typography variant="body2" color="text.secondary">{registered.map((delegate) => delegate.delegateName || delegate.delegateId).join("، ")}</Typography> : <Typography variant="body2" color="text.secondary">لم تسجل أي مندوبة تقريرًا حتى الآن.</Typography>}
+    </DialogContent>
+  </Dialog>;
+}
+
+function TeamAnalysisDashboard({ data, month, onSelectDelegate }) {
   const summary = data.summary || {};
   const delegates = data.delegates || [];
-  const supervisors = data.supervisors || [];
+  const branches = data.branches || [];
   const activeDelegates = delegates.filter((delegate) => Number(delegate.reports) > 0);
-  const topDelegate = [...delegates].sort((left, right) => Number(right.salesValue) - Number(left.salesValue))[0];
-  const topSupervisor = [...supervisors].sort((left, right) => Number(right.salesValue) - Number(left.salesValue))[0];
-  const averagePerReport = Number(summary.reports) ? Number(summary.salesValue) / Number(summary.reports) : 0;
+  const topDelegate = [...delegates].sort((left, right) => Number(right.actualPieces) - Number(left.actualPieces))[0];
+  const topBranch = [...branches].sort((left, right) => Number(right.actualPieces) - Number(left.actualPieces))[0];
   const period = data.date ? formatDay(data.date) : formatMonth(month);
+  const [analysisTab, setAnalysisTab] = useState("branches");
 
   return (
     <Stack spacing={2}>
@@ -1069,7 +1116,7 @@ function TeamAnalysisDashboard({ data, month, onSelectDelegate, onSelectSupervis
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
                 المصدر
               </Typography>
-              <Typography fontWeight={800}>Reports × UnitPrice</Typography>
+              <Typography fontWeight={800}>Reports + Targets</Typography>
             </Box>
           </Stack>
         </CardContent>
@@ -1084,10 +1131,10 @@ function TeamAnalysisDashboard({ data, month, onSelectDelegate, onSelectSupervis
           gap: 1.2,
         }}
       >
-        <MetricCard title="قيمة مبيعات الفريق" value={money(summary.salesValue)} hint={period} color={VALUE} icon={<PaidRoundedIcon />} />
-        <MetricCard title="مندوبات نشطات" value={number(activeDelegates.length)} hint={`من ${number(delegates.length)} مندوبة`} color="#2563eb" icon={<GroupsOutlinedIcon />} />
-        <MetricCard title="متوسط التقرير" value={money(averagePerReport)} hint="قيمة مبيعات لكل تقرير" color="#7c3aed" icon={<DescriptionOutlinedIcon />} />
-        <MetricCard title="أفضل مندوبة" value={topDelegate?.delegateName || "—"} hint={topDelegate ? money(topDelegate.salesValue) : "لا توجد مبيعات"} color="#d97706" icon={<WorkspacePremiumRoundedIcon />} />
+        <MetricCard title="القطع المحققة" value={number(summary.actualPieces)} hint={`الهدف ${number(summary.targetPieces)}`} color="#0f766e" icon={<Inventory2OutlinedIcon />} />
+        <MetricCard title="العملاء المحققون" value={number(summary.totalConsumers)} hint={`الهدف ${number(summary.targetConsumers)}`} color="#7c3aed" icon={<GroupsOutlinedIcon />} />
+        <MetricCard title="مندوبات مسجلات" value={number(activeDelegates.length)} hint={`من ${number(delegates.length)} مندوبة`} color="#2563eb" icon={<DescriptionOutlinedIcon />} />
+        <MetricCard title="أفضل مندوبة بالقطع" value={topDelegate?.delegateName || "—"} hint={topDelegate ? `${number(topDelegate.actualPieces)} قطعة` : "لا توجد تقارير"} color="#d97706" icon={<WorkspacePremiumRoundedIcon />} />
       </Box>
       <Box
         sx={{
@@ -1099,48 +1146,25 @@ function TeamAnalysisDashboard({ data, month, onSelectDelegate, onSelectSupervis
           gap: 1.5,
         }}
       >
-        <ChartCard title="قيمة المبيعات حسب المشرف" subtitle={topSupervisor ? `الأعلى: ${topSupervisor.supervisorName || "غير محدد"}` : ""} icon={<SupervisorAccountRoundedIcon />}>
-          <SalesValueChart rows={supervisors} nameKey="supervisorName" />
+        <ChartCard title="القطع مقابل الهدف حسب الفرع" subtitle={topBranch ? `الأعلى: ${topBranch.branchName || "غير محدد"}` : ""} icon={<Inventory2OutlinedIcon />}>
+          <TeamVolumeChart rows={branches} nameKey="branchName" />
         </ChartCard>
-        <ChartCard title="اتجاه قيمة المبيعات اليومي" subtitle="يتغير حسب أيام تسجيل الفريق" icon={<TrendingUpRoundedIcon />}>
-          <DailySalesChart days={data.teamDays || []} />
-        </ChartCard>
-      </Box>
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            lg: "minmax(0, 1fr) minmax(0, 1fr)",
-          },
-          gap: 1.5,
-        }}
-      >
-        <ChartCard title="أفضل المندوبات بالقيمة" subtitle="أعلى 12 مندوبة حسب قيمة المبيعات" icon={<PaidRoundedIcon />}>
-          <SalesValueChart rows={delegates} nameKey="delegateName" />
-        </ChartCard>
-        <ChartCard title="القطع المحققة مقابل الهدف" subtitle="أفضل 12 مندوبة حسب المحقق" icon={<Inventory2OutlinedIcon />}>
-          <TeamVolumeChart rows={delegates} />
+        <ChartCard title="العملاء مقابل الهدف حسب الفرع" subtitle="عدد العملاء المحققين مقارنة بالهدف" icon={<GroupsOutlinedIcon />}>
+          <CustomerTargetChart rows={branches} nameKey="branchName" />
         </ChartCard>
       </Box>
-      <Box>
-        <Typography fontWeight={900} sx={{ mb: 1.1 }}>
-          فرق المشرفين
-        </Typography>
-        <SupervisorCards rows={supervisors} onOpen={onSelectSupervisor} />
-      </Box>
-      <Box>
-        <Typography fontWeight={900} sx={{ mb: 1.1 }}>
-          ترتيب المندوبات وتفاصيل الأداء
-        </Typography>
-        <PerformanceTable rows={delegates} type="delegate" onSelect={onSelectDelegate} />
-      </Box>
-      <Box>
-        <Typography fontWeight={900} sx={{ mb: 1.1 }}>
-          تحليل الكاتيجوري والمنتجات
-        </Typography>
-        <CategoryTable categories={data.categories || []} detailed />
-      </Box>
+      <Card elevation={0} sx={{ border: "1px solid #dfe7f1", borderRadius: 3 }}>
+        <Tabs value={analysisTab} onChange={(_, value) => setAnalysisTab(value)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ px: 1, borderBottom: "1px solid #e7edf5", "& .MuiTab-root": { fontWeight: 900, minHeight: 52 } }}>
+          <Tab value="branches" label="تحليل الفروع" />
+          <Tab value="categories" label="تحليل الكاتيجوري" />
+          <Tab value="delegates" label="تحليل المندوبات" />
+        </Tabs>
+        <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+          {analysisTab === "branches" && <><Typography fontWeight={900} sx={{ mb: 1.25 }}>الفروع: العملاء والقطع مقابل الأهداف</Typography><PerformanceTable rows={branches} type="branch" /><Box sx={{ mt: 2 }}><CustomerTargetChart rows={branches} nameKey="branchName" /></Box></>}
+          {analysisTab === "categories" && <><Typography fontWeight={900} sx={{ mb: 1.25 }}>الكاتيجوري والمنتجات: القطع المحققة مقابل الهدف</Typography><CategoryTable categories={data.categories || []} detailed /></>}
+          {analysisTab === "delegates" && <><Typography fontWeight={900} sx={{ mb: 1.25 }}>المندوبات: العملاء والقطع مقابل الأهداف</Typography><PerformanceTable rows={delegates} type="delegate" onSelect={onSelectDelegate} /><Box sx={{ mt: 2 }}><CustomerTargetChart rows={delegates} /></Box></>}
+        </CardContent>
+      </Card>
     </Stack>
   );
 }
@@ -1163,6 +1187,7 @@ export default function OversightPage() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [shortageUpdatingId, setShortageUpdatingId] = useState("");
   const [exportingFormat, setExportingFormat] = useState("");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const role = normalizeRole(user?.role);
 
   useEffect(() => {
@@ -1466,6 +1491,9 @@ export default function OversightPage() {
               sx={{ width: { xs: "100%", sm: 188 } }}
             />
           )}
+          <IconButton aria-label="إشعارات تسجيل التقارير" onClick={() => setNotificationsOpen(true)} disabled={!data} sx={{ alignSelf: { xs: "flex-end", md: "center" }, border: "1px solid #d9e4f2", borderRadius: 2, color: "#2563eb" }}>
+            <Badge badgeContent={data?.registration?.missingCount || 0} color="warning" max={99}><NotificationsNoneRoundedIcon /></Badge>
+          </IconButton>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" size="small" startIcon={<FileDownloadOutlinedIcon />} disabled={!data || Boolean(exportingFormat)} onClick={() => downloadReport("excel")}>
               {exportingFormat === "excel" ? "جارٍ تجهيز Excel..." : role === "Management" ? "Excel خام" : "Excel"}
@@ -1476,8 +1504,7 @@ export default function OversightPage() {
           </Stack>
         </Stack>
       </Stack>
-      {role === "Management" && (
-        <Box sx={{ borderBottom: "1px solid #dfe7f1", mb: 2.25 }}>
+      <Box sx={{ borderBottom: "1px solid #dfe7f1", mb: 2.25 }}>
           <Tabs
             value={view}
             onChange={(_, nextView) => setView(nextView)}
@@ -1489,11 +1516,10 @@ export default function OversightPage() {
               "& .MuiTab-root": { minHeight: 46, fontWeight: 900, px: 2 },
             }}
           >
-            <Tab value="overview" label="نظرة الإدارة" icon={<ManageAccountsRoundedIcon fontSize="small" />} iconPosition="start" />
+            <Tab value="overview" label={role === "Management" ? "نظرة الإدارة" : "نظرة المشرف"} icon={role === "Management" ? <ManageAccountsRoundedIcon fontSize="small" /> : <SupervisorAccountRoundedIcon fontSize="small" />} iconPosition="start" />
             <Tab value="team-analysis" label="تحليل الفريق" icon={<InsightsRoundedIcon fontSize="small" />} iconPosition="start" />
           </Tabs>
-        </Box>
-      )}
+      </Box>
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
@@ -1504,7 +1530,8 @@ export default function OversightPage() {
           <CircularProgress />
         </Box>
       )}
-      {data && (role === "Management" && view === "team-analysis" ? <TeamAnalysisDashboard data={data} month={month} onSelectDelegate={openDelegate} onSelectSupervisor={openSupervisor} /> : overview)}
+      {data && (view === "team-analysis" ? <TeamAnalysisDashboard data={data} month={month} onSelectDelegate={openDelegate} /> : overview)}
+      <RegistrationDialog registration={data?.registration} open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
       <DelegateDetailDialog delegate={selectedDelegate} data={delegateDetail} loading={delegateLoading} error={delegateError} onClose={closeDelegate} onOpenDay={setSelectedDay} />
       <SupervisorTeamDialog supervisor={selectedSupervisor} data={supervisorDetail} loading={supervisorLoading} error={supervisorError} onClose={closeSupervisor} onOpenDelegate={openDelegateFromSupervisor} />
       <DayDetailDialog day={selectedDay} onClose={() => setSelectedDay(null)} />

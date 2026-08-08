@@ -1,4 +1,4 @@
-const { currentMonth, getSheetRows, getSheetRowsIfExists, toDate, toMonth, toNumber } = require("./sheets.service");
+const { currentDate, currentMonth, getSheetRows, getSheetRowsIfExists, toDate, toMonth, toNumber } = require("./sheets.service");
 const { canonicalRole } = require("../utils/roles");
 const { buildMonthlyAggregate, resolveReportTargetValues, resolveReportsPricing } = require("./report.service");
 const { UNIT_PRICE_SHEET } = require("./unit-price.service");
@@ -208,6 +208,77 @@ function buildTeamDays(reports) {
     .sort((left, right) => left.date.localeCompare(right.date));
 }
 
+function buildBranchRows(reports, targets, productNameToId = new Map()) {
+  const branches = new Map();
+  const customerTargets = new Map();
+
+  function ensure(row) {
+    const branchId = text(row.BranchID);
+    const branchName = text(row.BranchName) || branchId || "غير محدد";
+    const id = branchId || `name:${branchName}`;
+    if (!branches.has(id)) {
+      branches.set(id, emptyMetrics({ branchId, branchName }));
+    }
+    return branches.get(id);
+  }
+
+  targets.forEach((target) => {
+    const branch = ensure(target);
+    branch.targetPieces += getTargetRowTotalPieces(target, productNameToId);
+    const targetKey = `${text(target.DelegateID)}\u0000${toDate(target.Date) || rowMonth(target)}\u0000${branch.branchId || branch.branchName}`;
+    customerTargets.set(targetKey, Math.max(customerTargets.get(targetKey) || 0, toNumber(target.TargetConsumer)));
+  });
+
+  customerTargets.forEach((amount, targetKey) => {
+    const [, , branchIdentity] = targetKey.split("\u0000");
+    const branch = [...branches.values()].find((row) => (row.branchId || row.branchName) === branchIdentity);
+    if (branch) branch.targetConsumers += amount;
+  });
+
+  const groupedReports = new Map();
+  reports.forEach((report) => {
+    const id = reportKey(report);
+    groupedReports.set(id, [...(groupedReports.get(id) || []), report]);
+  });
+  groupedReports.forEach((rows) => {
+    const branch = ensure(rows[0] || {});
+    branch.reports += 1;
+    rows.forEach((report) => {
+      branch.actualPieces += toNumber(report.ActualPieces);
+      branch.totalConsumers += toNumber(report.TotalConsumer);
+      if (text(report.ReportType) === "Vouchers") branch.vouchers += toNumber(text(report.Vouchers) || report.Amount);
+    });
+  });
+
+  return [...branches.values()]
+    .map(withAchievement)
+    .sort((left, right) => right.actualPieces - left.actualPieces || left.branchName.localeCompare(right.branchName, "ar"));
+}
+
+function buildRegistrationStatus(delegates, reports, { role, supervisorId, date = currentDate() } = {}) {
+  const registeredIds = new Set(
+    reports
+      .filter((report) => toDate(report.Date) === date && (role === "Management" || key(report.SupervisorsID) === supervisorId))
+      .map((report) => text(report.DelegateID))
+      .filter(Boolean)
+  );
+  const registered = delegates
+    .filter((delegate) => registeredIds.has(text(delegate.DelegateID)))
+    .map((delegate) => ({ delegateId: text(delegate.DelegateID), delegateName: text(delegate.DelegateName) || text(delegate.Name) }));
+  const missing = delegates
+    .filter((delegate) => !registeredIds.has(text(delegate.DelegateID)))
+    .map((delegate) => ({ delegateId: text(delegate.DelegateID), delegateName: text(delegate.DelegateName) || text(delegate.Name) }));
+
+  return {
+    date,
+    total: delegates.length,
+    registeredCount: registered.length,
+    missingCount: missing.length,
+    registered,
+    missing,
+  };
+}
+
 function buildSupervisorAssignments(delegates, supervisors, reports) {
   const supervisorIds = new Map(supervisors.map((supervisor) => [key(supervisor.SupervisorsID), text(supervisor.SupervisorsID)]));
   const reportedAssignments = new Map();
@@ -339,8 +410,10 @@ async function getOversightData(user, { month, date } = {}) {
     summary: sumMetrics(delegates),
     supervisors: buildSupervisorRows(user, supervisorSheet.rows, delegates),
     delegates,
+    branches: buildBranchRows(reports, targets, buildProductNameToIdMap(productSheet.rows)),
     categories: buildCategoryRows(reports, targets, productSheet.rows),
     teamDays: buildTeamDays(reports),
+    registration: buildRegistrationStatus(team, reportSheet.rows, { role, supervisorId }),
     shortages,
   };
 }
