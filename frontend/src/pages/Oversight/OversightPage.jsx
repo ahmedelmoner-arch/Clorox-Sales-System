@@ -81,7 +81,7 @@ function MetricCard({ title, value, hint, color, icon }) {
             <Typography variant="caption" color="text.secondary" fontWeight={700}>
               {title}
             </Typography>
-            <Typography fontWeight={900} noWrap sx={{ fontSize: { xs: "clamp(1rem, 5.4vw, 1.2rem)", sm: 23 }, color: "#132f58", mt: 0.25, fontVariantNumeric: "tabular-nums" }}>
+            <Typography fontWeight={900} noWrap sx={{ fontSize: { xs: 19, sm: 23 }, color: "#132f58", mt: 0.25 }}>
               {value}
             </Typography>
             <Typography variant="caption" color={color} fontWeight={800} noWrap>
@@ -270,8 +270,8 @@ function PerformanceTable({ rows, type, onSelect }) {
         </Box>;
       }) : <Typography sx={{ p: 3, textAlign: "center", border: "1px solid #e0e8f2", borderRadius: 2.5 }} color="text.secondary">لا توجد بيانات لهذا الشهر.</Typography>}
     </Box>
-    <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "block", sm: "none" }, mb: 0.65, px: 0.25 }}>اسحب الجدول يمينًا ويسارًا لعرض جميع البيانات.</Typography>
-    <Box aria-label="جدول أداء قابل للتمرير أفقيًا" sx={{ display: "block", overflowX: "scroll", overscrollBehaviorX: "contain", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", scrollbarWidth: "thin", "&::-webkit-scrollbar": { height: 8 }, "&::-webkit-scrollbar-thumb": { bgcolor: "#aebfd5", borderRadius: 8 }, "&::-webkit-scrollbar-track": { bgcolor: "#edf3f9" } }}>
+    <Typography variant="caption" color="text.secondary" sx={{ display: "none" }}>اسحب الجدول يمينًا ويسارًا لعرض جميع البيانات.</Typography>
+    <Box sx={{ overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5 }}>
       <Box sx={{ minWidth: 650 }}>
         <Box
           sx={{
@@ -389,8 +389,8 @@ function CategoryTable({ categories, detailed = false }) {
         {detailed && (category.products || []).map((product) => <Box key={product.productId} sx={{ px: 1.35, py: 1.05, borderTop: "1px solid #edf1f6", bgcolor: "#fbfdff" }}><Typography fontWeight={800} sx={{ mb: 0.75 }}>{product.productName}</Typography><Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.65 }}><Typography variant="caption">المحقق: <Box component="span" color="#16825a" fontWeight={900}>{number(product.actualPieces)}</Box></Typography><Typography variant="caption">الهدف: <Box component="span" fontWeight={900}>{number(product.targetPieces)}</Box></Typography><Typography variant="caption">القيمة: <Box component="span" color={VALUE} fontWeight={900}>{money(product.salesValue)}</Box></Typography><Typography variant="caption">الإنجاز: <Box component="span" color="#2563eb" fontWeight={900}>{percent(product.actualPieces, product.targetPieces)}</Box></Typography></Box></Box>)}
       </Box>) : <Typography sx={{ p: 3, textAlign: "center", border: "1px solid #e0e8f2", borderRadius: 2.5 }} color="text.secondary">لا توجد أهداف أو منتجات لهذا الشهر.</Typography>}
     </Box>
-    <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "block", sm: "none" }, mb: 0.65, px: 0.25 }}>اسحب الجدول يمينًا ويسارًا لعرض جميع البيانات.</Typography>
-    <Box aria-label="جدول الكاتيجوري والمنتجات قابل للتمرير أفقيًا" sx={{ display: "block", overflowX: "scroll", overscrollBehaviorX: "contain", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", scrollbarWidth: "thin", "&::-webkit-scrollbar": { height: 8 }, "&::-webkit-scrollbar-thumb": { bgcolor: "#aebfd5", borderRadius: 8 }, "&::-webkit-scrollbar-track": { bgcolor: "#edf3f9" } }}>
+    <Typography variant="caption" color="text.secondary" sx={{ display: "none" }}>اسحب الجدول يمينًا ويسارًا لعرض جميع البيانات.</Typography>
+    <Box sx={{ overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5 }}>
       <Box sx={{ minWidth: 580 }}>
         <Box
           sx={{
@@ -1095,7 +1095,7 @@ function VacationCard({ vacation }) {
         <Box textAlign="center"><Typography fontSize={22} fontWeight={900} color="#b45309">{number(vacation?.totalDays)}</Typography><Typography variant="caption" color="text.secondary">يوم</Typography></Box>
       </Stack>
       <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.5 }}>{types.length ? types.map((type) => <Box key={type.name} sx={{ px: 1, py: 0.5, borderRadius: 2, bgcolor: "#fff2d9", color: "#9a5b0d", fontSize: 12, fontWeight: 800 }}>{type.name}: {number(type.days)} يوم</Box>) : <Typography variant="body2" color="text.secondary">لا توجد إجازات مسجلة في الفترة المختارة.</Typography>}</Stack>
-      {days.length > 0 && <Box sx={{ maxHeight: 300, overflowY: "auto", borderTop: "1px solid #f2e6d5" }}>{days.map((day) => <Box key={day.id} sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr) auto", sm: "minmax(120px, 1fr) minmax(110px, 1fr) 92px" }, gap: { xs: 0.55, sm: 1 }, py: 1.05, borderBottom: "1px solid #f5eadc", alignItems: "center" }}><Typography fontWeight={800} noWrap sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{day.delegateName || day.delegateId}</Typography><Typography variant="body2" color="#9a5b0d" sx={{ gridColumn: { xs: "1 / -1", sm: "auto" }, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }} noWrap>{day.vacationType}</Typography><Typography variant="caption" textAlign="left" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>{formatDay(day.date)}</Typography></Box>)}</Box>}
+      {days.length > 0 && <Box sx={{ maxHeight: 300, overflowY: "auto", borderTop: "1px solid #f2e6d5" }}>{days.map((day) => <Box key={day.id} sx={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) minmax(110px, 1fr) 92px", gap: 1, py: 1.05, borderBottom: "1px solid #f5eadc", alignItems: "center" }}><Typography fontWeight={800} noWrap>{day.delegateName || day.delegateId}</Typography><Typography variant="body2" color="#9a5b0d" noWrap>{day.vacationType}</Typography><Typography variant="caption" textAlign="left" color="text.secondary">{formatDay(day.date)}</Typography></Box>)}</Box>}
     </CardContent>
   </Card>;
 }
