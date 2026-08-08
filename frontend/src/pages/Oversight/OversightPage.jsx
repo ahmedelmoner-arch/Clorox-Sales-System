@@ -254,7 +254,7 @@ function PerformanceTable({ rows, type, onSelect }) {
   const columns = "minmax(150px, 1.35fr) 108px 108px 76px 76px 64px";
   return (
     <>
-    <Box sx={{ display: { xs: "grid", sm: "none" }, gap: 1 }}>
+    <Box sx={{ display: "none" }}>
       {rows.length ? rows.map((row) => {
         const name = type === "supervisor" ? row.supervisorName : type === "branch" ? row.branchName : row.delegateName;
         const teamCount = type === "supervisor" ? ` (${number(row.delegates)})` : "";
@@ -270,7 +270,8 @@ function PerformanceTable({ rows, type, onSelect }) {
         </Box>;
       }) : <Typography sx={{ p: 3, textAlign: "center", border: "1px solid #e0e8f2", borderRadius: 2.5 }} color="text.secondary">لا توجد بيانات لهذا الشهر.</Typography>}
     </Box>
-    <Box sx={{ display: { xs: "none", sm: "block" }, overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
+    <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "block", sm: "none" }, mb: 0.65, px: 0.25 }}>اسحب الجدول يمينًا ويسارًا لعرض جميع البيانات.</Typography>
+    <Box aria-label="جدول أداء قابل للتمرير أفقيًا" sx={{ display: "block", overflowX: "scroll", overscrollBehaviorX: "contain", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", scrollbarWidth: "thin", "&::-webkit-scrollbar": { height: 8 }, "&::-webkit-scrollbar-thumb": { bgcolor: "#aebfd5", borderRadius: 8 }, "&::-webkit-scrollbar-track": { bgcolor: "#edf3f9" } }}>
       <Box sx={{ minWidth: 650 }}>
         <Box
           sx={{
@@ -376,7 +377,7 @@ function CategoryTable({ categories, detailed = false }) {
   const columns = "minmax(150px, 1fr) 92px 92px 112px 78px";
   return (
     <>
-    <Box sx={{ display: { xs: "grid", sm: "none" }, gap: 1 }}>
+    <Box sx={{ display: "none" }}>
       {categories.length ? categories.map((category) => <Box key={category.category} sx={{ border: "1px solid #d7ebe7", borderRadius: 2.5, overflow: "hidden", bgcolor: "#fff" }}>
         <Box sx={{ px: 1.35, py: 1, bgcolor: "#eff9f7" }}><Typography fontWeight={900} color="#0f766e">{category.category}</Typography></Box>
         <Box sx={{ p: 1.1, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.75 }}>
@@ -388,7 +389,8 @@ function CategoryTable({ categories, detailed = false }) {
         {detailed && (category.products || []).map((product) => <Box key={product.productId} sx={{ px: 1.35, py: 1.05, borderTop: "1px solid #edf1f6", bgcolor: "#fbfdff" }}><Typography fontWeight={800} sx={{ mb: 0.75 }}>{product.productName}</Typography><Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.65 }}><Typography variant="caption">المحقق: <Box component="span" color="#16825a" fontWeight={900}>{number(product.actualPieces)}</Box></Typography><Typography variant="caption">الهدف: <Box component="span" fontWeight={900}>{number(product.targetPieces)}</Box></Typography><Typography variant="caption">القيمة: <Box component="span" color={VALUE} fontWeight={900}>{money(product.salesValue)}</Box></Typography><Typography variant="caption">الإنجاز: <Box component="span" color="#2563eb" fontWeight={900}>{percent(product.actualPieces, product.targetPieces)}</Box></Typography></Box></Box>)}
       </Box>) : <Typography sx={{ p: 3, textAlign: "center", border: "1px solid #e0e8f2", borderRadius: 2.5 }} color="text.secondary">لا توجد أهداف أو منتجات لهذا الشهر.</Typography>}
     </Box>
-    <Box sx={{ display: { xs: "none", sm: "block" }, overflowX: "auto", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
+    <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "block", sm: "none" }, mb: 0.65, px: 0.25 }}>اسحب الجدول يمينًا ويسارًا لعرض جميع البيانات.</Typography>
+    <Box aria-label="جدول الكاتيجوري والمنتجات قابل للتمرير أفقيًا" sx={{ display: "block", overflowX: "scroll", overscrollBehaviorX: "contain", border: "1px solid #e0e8f2", borderRadius: 2.5, WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", scrollbarWidth: "thin", "&::-webkit-scrollbar": { height: 8 }, "&::-webkit-scrollbar-thumb": { bgcolor: "#aebfd5", borderRadius: 8 }, "&::-webkit-scrollbar-track": { bgcolor: "#edf3f9" } }}>
       <Box sx={{ minWidth: 580 }}>
         <Box
           sx={{
