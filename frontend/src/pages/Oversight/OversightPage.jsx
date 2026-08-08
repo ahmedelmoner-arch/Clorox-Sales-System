@@ -1390,6 +1390,11 @@ export default function OversightPage() {
       <Box sx={{ mt: 3 }}>
         <VacationCard vacation={data.vacation} />
       </Box>
+      {role === "Management" && Number(data.unassignedTargets?.rows) > 0 && (
+        <Alert severity="warning" sx={{ mt: 2.2 }}>
+          توجد أهداف فروع غير مخصصة لمندوبة: {number(data.unassignedTargets.rows)} صفًا في {number(data.unassignedTargets.branches)} فرع، بإجمالي {number(data.unassignedTargets.targetPieces)} قطعة و{number(data.unassignedTargets.targetConsumers)} عميل. تظهر منفصلة ولا تدخل في إنجاز أي مندوبة أو مشرف حتى يتم تعيينها في Google Sheets.
+        </Alert>
+      )}
       {shortages.products?.length > 0 && (
         <Box sx={{ mt: 3 }}>
           <Typography fontWeight={900} sx={{ mb: 1.1 }}>

@@ -303,6 +303,24 @@ function buildVacationSummary(reports) {
   };
 }
 
+function buildUnassignedTargetSummary(targets, productNameToId = new Map()) {
+  const customerTargets = new Map();
+  const branches = new Set();
+  const targetPieces = targets.reduce((total, target) => {
+    const branch = branchKey(target);
+    branches.add(branch);
+    const customerKey = `${toDate(target.Date) || rowMonth(target)}\u0000${branch}`;
+    customerTargets.set(customerKey, Math.max(customerTargets.get(customerKey) || 0, toNumber(target.TargetConsumer)));
+    return total + getTargetRowTotalPieces(target, productNameToId);
+  }, 0);
+  return {
+    rows: targets.length,
+    branches: branches.size,
+    targetPieces,
+    targetConsumers: [...customerTargets.values()].reduce((total, value) => total + value, 0),
+  };
+}
+
 function buildSupervisorAssignments(delegates, supervisors, reports) {
   const supervisorIds = new Map(supervisors.map((supervisor) => [key(supervisor.SupervisorsID), text(supervisor.SupervisorsID)]));
   const reportedAssignments = new Map();
@@ -420,6 +438,9 @@ async function getOversightData(user, { month, date } = {}) {
     null
   );
   const targets = targetSheet.rows.filter((target) => teamIds.has(text(target.DelegateID)) && matchesTargetRange(target, range));
+  const unassignedTargetRows = role === "Management"
+    ? targetSheet.rows.filter((target) => !text(target.DelegateID) && matchesTargetRange(target, range))
+    : [];
   const delegates = buildDelegateMetrics(team, reports, targets, supervisorAssignments, buildProductNameToIdMap(productSheet.rows)).sort((left, right) => right.actualPieces - left.actualPieces || left.delegateName.localeCompare(right.delegateName, "ar"));
   const shortages = await getShortageAnalyticsForDelegateIds(teamIds, range);
 
@@ -439,6 +460,7 @@ async function getOversightData(user, { month, date } = {}) {
     teamDays: buildTeamDays(reports),
     registration: buildRegistrationStatus(team, reportSheet.rows, { role, supervisorId }),
     vacation: buildVacationSummary(reports),
+    unassignedTargets: buildUnassignedTargetSummary(unassignedTargetRows, buildProductNameToIdMap(productSheet.rows)),
     shortages,
   };
 }

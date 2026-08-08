@@ -3,7 +3,7 @@ const { getReportsForDelegate, getTargetSummaryForDate, makeSummary } = require(
 const { getAnnualVacationDays, getVacationSummary } = require("./vacation.service");
 const { createProductOrder } = require("../utils/product-order");
 const { getShortageAnalytics } = require("./shortage.service");
-const { buildProductNameToIdMap, getTargetRowProductTargets, matchesDelegateRow } = require("./target.service");
+const { buildProductNameToIdMap, getTargetRowProductTargets, matchesDelegateRow, targetRowMonth } = require("./target.service");
 
 function matchesDelegate(row, delegateId) {
   return matchesDelegateRow(row, delegateId);
@@ -26,7 +26,7 @@ function buildCustomerDays(reports, targets, delegateId, month) {
   const reportGroups = new Set();
 
   targets.forEach((target) => {
-    if (!matchesDelegate(target, delegateId) || toMonth(target.Month || target.Date) !== month) return;
+    if (!matchesDelegate(target, delegateId) || targetRowMonth(target) !== month) return;
     const date = toDate(target.Date);
     if (!date) return;
     const day = byDay.get(date) || { date, label: dayLabel(date), targetBranches: new Map(), actual: 0 };
@@ -76,7 +76,7 @@ function buildProductPerformance(reports, targets, products, delegateId, month) 
   }
 
   targets.forEach((target) => {
-    if (!matchesDelegate(target, delegateId) || (month && toMonth(target.Month || target.Date) !== month)) return;
+    if (!matchesDelegate(target, delegateId) || (month && targetRowMonth(target) !== month)) return;
     const rowProductTargets = getTargetRowProductTargets(target, productNameToId);
     rowProductTargets.forEach((amount, productId) => {
       ensure(productId, target.ProductName).target += amount;
@@ -103,7 +103,7 @@ function buildProductPerformance(reports, targets, products, delegateId, month) 
 function getCustomerTargetTotal(targets, delegateId, month) {
   const targetsByDayBranch = new Map();
   targets.forEach((target) => {
-    if (!matchesDelegate(target, delegateId) || (month && toMonth(target.Month || target.Date) !== month)) return;
+    if (!matchesDelegate(target, delegateId) || (month && targetRowMonth(target) !== month)) return;
     const date = toDate(target.Date) || String(target.Month || "");
     if (!date) return;
     const key = `${date}-${branchKey(target)}`;
@@ -170,7 +170,7 @@ function buildProductDays(reports, targets, products, delegateId, month) {
   }
 
   targets.forEach((target) => {
-    if (!matchesDelegate(target, delegateId) || toMonth(target.Month || target.Date) !== month) return;
+    if (!matchesDelegate(target, delegateId) || targetRowMonth(target) !== month) return;
     const date = toDate(target.Date);
     if (!date) return;
     const rowProductTargets = getTargetRowProductTargets(target, productNameToId);

@@ -293,7 +293,7 @@ async function getTargetSummary(user, month = currentMonth()) {
   const productNameToId = buildProductNameToIdMap(productSheet.rows);
 
   targetSheet.rows.forEach((target) => {
-    if (!matchesDelegate(target, delegateId) || toMonth(target.Month || target.Date) !== month) return;
+    if (!matchesDelegate(target, delegateId) || targetMonth(target) !== month) return;
     targetPieces += getTargetRowTotalPieces(target, productNameToId);
     const dayKey = `${toDate(target.Date) || String(target.Month || month)}-${targetBranchKey(target)}`;
     customerTargetsByDay.set(dayKey, Math.max(customerTargetsByDay.get(dayKey) || 0, toNumber(target.TargetConsumer)));
