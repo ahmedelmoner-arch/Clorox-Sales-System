@@ -279,6 +279,30 @@ function buildRegistrationStatus(delegates, reports, { role, supervisorId, date 
   };
 }
 
+function buildVacationSummary(reports) {
+  const records = new Map();
+  reports.forEach((report) => {
+    if (text(report.ReportType) !== "Vacation") return;
+    const id = reportKey(report);
+    if (records.has(id)) return;
+    records.set(id, {
+      id,
+      date: toDate(report.Date),
+      delegateId: text(report.DelegateID),
+      delegateName: text(report.DelegateName) || text(report.Delegate),
+      vacationType: text(report.VacationType) || "غير محدد",
+    });
+  });
+  const days = [...records.values()].sort((left, right) => right.date.localeCompare(left.date) || left.delegateName.localeCompare(right.delegateName, "ar"));
+  const types = new Map();
+  days.forEach((day) => types.set(day.vacationType, (types.get(day.vacationType) || 0) + 1));
+  return {
+    totalDays: days.length,
+    types: [...types.entries()].map(([name, days]) => ({ name, days })).sort((left, right) => right.days - left.days || left.name.localeCompare(right.name, "ar")),
+    days,
+  };
+}
+
 function buildSupervisorAssignments(delegates, supervisors, reports) {
   const supervisorIds = new Map(supervisors.map((supervisor) => [key(supervisor.SupervisorsID), text(supervisor.SupervisorsID)]));
   const reportedAssignments = new Map();
@@ -414,6 +438,7 @@ async function getOversightData(user, { month, date } = {}) {
     categories: buildCategoryRows(reports, targets, productSheet.rows),
     teamDays: buildTeamDays(reports),
     registration: buildRegistrationStatus(team, reportSheet.rows, { role, supervisorId }),
+    vacation: buildVacationSummary(reports),
     shortages,
   };
 }

@@ -16,6 +16,7 @@ import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRou
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
+import BeachAccessOutlinedIcon from "@mui/icons-material/BeachAccessOutlined";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AppShell from "../../components/layout/AppShell";
 import { useSession } from "../../context/SessionContext";
@@ -1050,6 +1051,21 @@ function SupervisorTeamDialog({ supervisor, data, loading, error, onClose, onOpe
   );
 }
 
+function VacationCard({ vacation }) {
+  const days = vacation?.days || [];
+  const types = vacation?.types || [];
+  return <Card elevation={0} sx={{ border: "1px solid #f0dfc5", borderRadius: 3, overflow: "hidden", bgcolor: "#fffdf8" }}>
+    <CardContent sx={{ p: { xs: 1.7, sm: 2.1 } }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+        <Stack direction="row" spacing={1} alignItems="center"><Box sx={{ width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: 2.25, bgcolor: "#fff2d9", color: "#d97706" }}><BeachAccessOutlinedIcon /></Box><Box><Typography fontWeight={900}>الإجازات المسجلة</Typography><Typography variant="caption" color="text.secondary">كل أيام الإجازات ضمن الفترة المختارة</Typography></Box></Stack>
+        <Box textAlign="center"><Typography fontSize={22} fontWeight={900} color="#b45309">{number(vacation?.totalDays)}</Typography><Typography variant="caption" color="text.secondary">يوم</Typography></Box>
+      </Stack>
+      <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.5 }}>{types.length ? types.map((type) => <Box key={type.name} sx={{ px: 1, py: 0.5, borderRadius: 2, bgcolor: "#fff2d9", color: "#9a5b0d", fontSize: 12, fontWeight: 800 }}>{type.name}: {number(type.days)} يوم</Box>) : <Typography variant="body2" color="text.secondary">لا توجد إجازات مسجلة في الفترة المختارة.</Typography>}</Stack>
+      {days.length > 0 && <Box sx={{ maxHeight: 300, overflowY: "auto", borderTop: "1px solid #f2e6d5" }}>{days.map((day) => <Box key={day.id} sx={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) minmax(110px, 1fr) 92px", gap: 1, py: 1.05, borderBottom: "1px solid #f5eadc", alignItems: "center" }}><Typography fontWeight={800} noWrap>{day.delegateName || day.delegateId}</Typography><Typography variant="body2" color="#9a5b0d" noWrap>{day.vacationType}</Typography><Typography variant="caption" textAlign="left" color="text.secondary">{formatDay(day.date)}</Typography></Box>)}</Box>}
+    </CardContent>
+  </Card>;
+}
+
 function RegistrationDialog({ registration, open, onClose }) {
   const registered = registration?.registered || [];
   const missing = registration?.missing || [];
@@ -1370,6 +1386,9 @@ export default function OversightPage() {
         {cards.map((card) => (
           <MetricCard key={card.title} {...card} />
         ))}
+      </Box>
+      <Box sx={{ mt: 3 }}>
+        <VacationCard vacation={data.vacation} />
       </Box>
       {shortages.products?.length > 0 && (
         <Box sx={{ mt: 3 }}>
